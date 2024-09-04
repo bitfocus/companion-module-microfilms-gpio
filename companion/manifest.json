@@ -1,0 +1,28 @@
+{
+	"id": "microfilms-gpio",
+	"name": "microfilms-gpio",
+	"shortname": "MFGPIO",
+	"description": "Microfilms GPIO",
+	"version": "0.1.0",
+	"license": "MIT",
+	"repository": "git+https://github.com/Microfilms/companion-module-microfilms-gpio.git",
+	"bugs": "https://github.com/Microfilms/companion-module-microfilms-gpio.git",
+	"maintainers": [
+		{
+			"name": "Jérémy DIERX",
+			"email": "jeremy.d@code-alchimie.fr"
+		}
+	],
+	"runtime": {
+		"type": "node18",
+		"api": "nodejs-ipc",
+		"apiVersion": "0.1.0",
+		"entrypoint": "../main.js"
+	},
+	"legacyIds": [],
+	"manufacturer": "Microfilms",
+	"products": [
+		"GPIO"
+	],
+	"keywords": []
+}
