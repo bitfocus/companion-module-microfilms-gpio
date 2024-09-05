@@ -73,6 +73,7 @@ class ModuleInstance extends InstanceBase {
     this.configureUdp() // on configure la connexion UDP
     this.setGpioHeader = Buffer.from('INP') // En-tête pour la commande "Set GPIO"
     this.gpioBytes = Buffer.from([0, 0, 0, 0]) // Valeur GPIO à envoyer
+    this.sendGpioPingId = null
     this.sendGpioPing()
     this.byteToBinaryString = gpioBytesToBinaryString // Fonction pour convertir un octet en une chaîne binaire de 8 bits
     this.log('info', 'Microfilms GPIO started!') // Ajout du message "hello, world!" dans les logs
@@ -130,7 +131,7 @@ class ModuleInstance extends InstanceBase {
       }
 
       // Rappeler cette fonction après l'intervalle défini (1 seconde)
-      setTimeout(() => {
+      this.sendGpioPingId = setTimeout(() => {
         this.sendGpioPing() // Répéter l'envoi du ping après 1 seconde
       }, 1000)
     })

@@ -97,11 +97,15 @@ module.exports = function () {
         // Crée le message "Set GPIO" avec l'en-tête, les GPIO et le masque
         const msgUp = Buffer.concat([this.setGpioHeader, gpioBytesUp, maskBytes, reservedBytes])
 
+        // Arrêt du ping
+        if (this.sendGpioPingId) clearTimeout(this.sendGpioPingId)
         // send UP
         this.udpClient.send(msgUp, this.config.port, this.config.host, (err) => {
           if (err) {
             this.log('error', `Error sending UDP message: ${err}`)
           } else {
+            // relance du ping
+            this.sendGpioPing()
             this.log(
               'info',
               `"Set GPIO bit ${i + 1} UP" sent to ${this.config.host}:${this.config.port} (GPIO=${this.byteToBinaryString(gpioBytesUp)})`
