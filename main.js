@@ -65,6 +65,8 @@ class ModuleInstance extends InstanceBase {
     initActions.bind(this)() // export actions
     initFeedbacks.bind(this)() // export feedbacks
     initPresets.bind(this)() // export presets
+    this.config.port = this.config.port || 5000 // Port par défaut
+    this.config.host = this.config.host || '127.0.0.1' // Adresse IP par défaut
     this.configureUdp() // on configure la connexion UDP
     this.setGpioHeader = Buffer.from('INP') // En-tête pour la commande "Set GPIO"
     this.gpioBytes = Buffer.from([0, 0, 0, 0]) // Valeur GPIO à envoyer
