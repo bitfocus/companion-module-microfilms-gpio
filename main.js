@@ -73,9 +73,8 @@ class ModuleInstance extends InstanceBase {
     this.configureUdp() // on configure la connexion UDP
     this.setGpioHeader = Buffer.from('INP') // En-tête pour la commande "Set GPIO"
     this.gpioBytes = Buffer.from([0, 0, 0, 0]) // Valeur GPIO à envoyer
-    this.sendGpioPing() // Envoie une commande "Set GPIO" pour obtenir l'état actuel
-    // Fonction pour convertir un octet en une chaîne binaire de 8 bits
-    this.byteToBinaryString = gpioBytesToBinaryString
+    this.sendGpioPing()
+    this.byteToBinaryString = gpioBytesToBinaryString // Fonction pour convertir un octet en une chaîne binaire de 8 bits
     this.log('info', 'Microfilms GPIO started!') // Ajout du message "hello, world!" dans les logs
   }
 
@@ -113,6 +112,7 @@ class ModuleInstance extends InstanceBase {
     })
   }
 
+  // Fonction récursive pour envoyer des pings à intervalle régulier
   sendGpioPing () {
     // Données pour la commande "Set GPIO"
     const gpioBytes = Buffer.from([0, 0, 0, 0]) // Valeur GPIO à envoyer
@@ -120,6 +120,7 @@ class ModuleInstance extends InstanceBase {
     const reservedBytes = Buffer.from([0, 0]) // Octets réservés
     // Crée le message "Set GPIO" avec l'en-tête, les GPIO et le masque
     const message = Buffer.concat([this.setGpioHeader, gpioBytes, maskBytes, reservedBytes])
+
     // Envoie le message "Set GPIO" au simulateur de robot
     this.udpClient.send(message, this.config.port, this.config.host, (err) => {
       if (err) {
@@ -127,6 +128,11 @@ class ModuleInstance extends InstanceBase {
       } else {
         this.log('info', 'Command "Set GPIO PING" sent successfully.')
       }
+
+      // Rappeler cette fonction après l'intervalle défini (1 seconde)
+      setTimeout(() => {
+        this.sendGpioPing() // Répéter l'envoi du ping après 1 seconde
+      }, 1000)
     })
   }
 
@@ -138,6 +144,7 @@ class ModuleInstance extends InstanceBase {
   async configUpdated (config) {
     this.config = config
     this.configureUdp()
+    this.log('info', 'Config updated')
   }
 
   // Retourne les champs de configuration pour la configuration web
