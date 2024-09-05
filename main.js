@@ -33,6 +33,7 @@ const UpgradeScripts = require('./upgrades')
 const initActions = require('./actions')
 const initFeedbacks = require('./feedbacks')
 const initPresets = require('./presets')
+const initVariables = require('./variables')
 
 function gpioBytesToBinaryString (gpioBytes) {
   // Fonction pour convertir un octet en une chaîne binaire de 8 bits
@@ -62,9 +63,11 @@ class ModuleInstance extends InstanceBase {
       green: combineRgb(0, 200, 0),
       red: combineRgb(200, 0, 0)
     }
+
     initActions.bind(this)() // export actions
     initFeedbacks.bind(this)() // export feedbacks
     initPresets.bind(this)() // export presets
+    initVariables.bind(this)() // export variables
     this.config.port = this.config.port || 5000 // Port par défaut
     this.config.host = this.config.host || '127.0.0.1' // Adresse IP par défaut
     this.configureUdp() // on configure la connexion UDP
@@ -92,7 +95,15 @@ class ModuleInstance extends InstanceBase {
       const header = msg.subarray(0, 3).toString()
       if (header === 'OUT') {
         this.gpioBytes = msg.subarray(3, 7)
+        this.setVariableValues({ gpio: this.gpioBytes.readUInt32LE(0) })
         for (let i = 0; i < 32; i++) {
+          const byteIndex = Math.floor(i / 8) // Indice de l'octet
+          const bitIndex = i % 8 // Position du bit dans l'octet
+          const bitValue = (this.gpioBytes[byteIndex] & (1 << bitIndex)) !== 0 ? 1 : 0
+
+          // Mettre à jour la variable correspondante (state1, state2, ..., state32)
+          this.setVariableValues({ [`state${i + 1}`]: bitValue })
+          // Mettre à jour les feedbacks correspondants (gpio_state_bit_1, gpio_state_bit_2, ..., gpio_state_bit_32)
           this.checkFeedbacks(`gpio_state_bit_${i + 1}`)
         }
         this.log('info', `"Status" response from ${rinfo.address}:${rinfo.port} (GPIO=${this.byteToBinaryString(this.gpioBytes)})`)
@@ -106,8 +117,9 @@ class ModuleInstance extends InstanceBase {
     // Données pour la commande "Set GPIO"
     const gpioBytes = Buffer.from([0, 0, 0, 0]) // Valeur GPIO à envoyer
     const maskBytes = Buffer.from([0, 0, 0, 0]) // Masque pour modifier tous les GPIO
+    const reservedBytes = Buffer.from([0, 0]) // Octets réservés
     // Crée le message "Set GPIO" avec l'en-tête, les GPIO et le masque
-    const message = Buffer.concat([this.setGpioHeader, gpioBytes, maskBytes])
+    const message = Buffer.concat([this.setGpioHeader, gpioBytes, maskBytes, reservedBytes])
     // Envoie le message "Set GPIO" au simulateur de robot
     this.udpClient.send(message, this.config.port, this.config.host, (err) => {
       if (err) {

@@ -44,8 +44,10 @@ module.exports = function () {
         const maskBytes = Buffer.alloc(4) // 4 octets pour le masque
         maskBytes[Math.floor(i / 8)] = 1 << (i % 8) // Masquer uniquement le bit correspondant
 
+        const reservedBytes = Buffer.from([0, 0]) // Octets réservés
+
         // Crée le message "Set GPIO" avec l'en-tête, les GPIO et le masque
-        const msgUp = Buffer.concat([this.setGpioHeader, gpioBytesUp, maskBytes])
+        const msgUp = Buffer.concat([this.setGpioHeader, gpioBytesUp, maskBytes, reservedBytes])
 
         // send UP
         this.udpClient.send(msgUp, this.config.port, this.config.host, (err) => {
@@ -90,8 +92,10 @@ module.exports = function () {
         const maskBytes = Buffer.alloc(4) // 4 octets pour le masque
         maskBytes[Math.floor(i / 8)] = 1 << (i % 8) // Masquer uniquement le bit correspondant
 
+        const reservedBytes = Buffer.from([0, 0]) // Octets réservés
+
         // Crée le message "Set GPIO" avec l'en-tête, les GPIO et le masque
-        const msgUp = Buffer.concat([this.setGpioHeader, gpioBytesUp, maskBytes])
+        const msgUp = Buffer.concat([this.setGpioHeader, gpioBytesUp, maskBytes, reservedBytes])
 
         // send UP
         this.udpClient.send(msgUp, this.config.port, this.config.host, (err) => {
