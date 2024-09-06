@@ -113,7 +113,7 @@ class ModuleInstance extends InstanceBase {
     })
   }
 
-  // Fonction récursive pour envoyer des pings à intervalle régulier
+    // Fonction récursive pour envoyer des pings à intervalle régulier
   sendGpioPing () {
     // Données pour la commande "Set GPIO"
     const gpioBytes = Buffer.from([0, 0, 0, 0]) // Valeur GPIO à envoyer
@@ -133,7 +133,7 @@ class ModuleInstance extends InstanceBase {
       // Rappeler cette fonction après l'intervalle défini (1 seconde)
       this.sendGpioPingId = setTimeout(() => {
         this.sendGpioPing() // Répéter l'envoi du ping après 1 seconde
-      }, 1000)
+      }, 500)
     })
   }
 

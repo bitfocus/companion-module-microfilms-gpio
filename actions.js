@@ -26,7 +26,7 @@
  * @requires this.log
  */
 
-const impulseDelay = 50 // Délai entre l'impulsion UP et l'impulsion DOWN
+const impulseDelay = 100 // Délai entre l'impulsion UP et l'impulsion DOWN
 
 module.exports = function () {
   const actionDefinitions = {}
@@ -55,7 +55,7 @@ module.exports = function () {
             this.log('error', `Error sending UDP message: ${err}`)
           } else {
             const gpioBytesDown = Buffer.alloc(4) // Tous les bits à '0' pour DOWN
-            const msgDown = Buffer.concat([this.setGpioHeader, gpioBytesDown, maskBytes])
+            const msgDown = Buffer.concat([this.setGpioHeader, gpioBytesDown, maskBytes, reservedBytes])
 
             setTimeout(() => {
               // send DOWN
@@ -97,15 +97,12 @@ module.exports = function () {
         // Crée le message "Set GPIO" avec l'en-tête, les GPIO et le masque
         const msgUp = Buffer.concat([this.setGpioHeader, gpioBytesUp, maskBytes, reservedBytes])
 
-        // Arrêt du ping
-        if (this.sendGpioPingId) clearTimeout(this.sendGpioPingId)
         // send UP
         this.udpClient.send(msgUp, this.config.port, this.config.host, (err) => {
           if (err) {
             this.log('error', `Error sending UDP message: ${err}`)
           } else {
             // relance du ping
-            this.sendGpioPing()
             this.log(
               'info',
               `"Set GPIO bit ${i + 1} UP" sent to ${this.config.host}:${this.config.port} (GPIO=${this.byteToBinaryString(gpioBytesUp)})`
@@ -126,8 +123,10 @@ module.exports = function () {
         const maskBytes = Buffer.alloc(4) // 4 octets pour le masque
         maskBytes[Math.floor(i / 8)] = 1 << (i % 8) // Masquer uniquement le bit correspondant
 
+	const reservedBytes = Buffer.from([0, 0]) // Octets réservés
+
         // Crée le message "Set GPIO" avec l'en-tête, les GPIO et le masque
-        const msgDown = Buffer.concat([this.setGpioHeader, gpioBytesDown, maskBytes])
+        const msgDown = Buffer.concat([this.setGpioHeader, gpioBytesDown, maskBytes, reservedBytes])
 
         // send DOWN
         this.udpClient.send(msgDown, this.config.port, this.config.host, (err) => {
@@ -146,3 +145,4 @@ module.exports = function () {
 
   this.setActionDefinitions(actionDefinitions)
 }
+
