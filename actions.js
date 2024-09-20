@@ -123,7 +123,7 @@ module.exports = function () {
         const maskBytes = Buffer.alloc(4) // 4 octets pour le masque
         maskBytes[Math.floor(i / 8)] = 1 << (i % 8) // Masquer uniquement le bit correspondant
 
-	const reservedBytes = Buffer.from([0, 0]) // Octets réservés
+        const reservedBytes = Buffer.from([0, 0]) // Octets réservés
 
         // Crée le message "Set GPIO" avec l'en-tête, les GPIO et le masque
         const msgDown = Buffer.concat([this.setGpioHeader, gpioBytesDown, maskBytes, reservedBytes])

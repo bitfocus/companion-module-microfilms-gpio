@@ -8,6 +8,7 @@
  * @requires ./actions
  * @requires ./feedbacks
  * @requires ./presets
+ * @requires ./variables
  *
  * @class ModuleInstance
  * @extends InstanceBase
@@ -16,7 +17,25 @@
  * @description Convertit un tableau d'octets GPIO en une chaîne binaire.
  *
  * @function ModuleInstance#init
- * @description Initialise le module avec la configuration donnée, configure les actions, feedbacks, presets et la connexion UDP.
+ * @description Initialise le module avec la configuration donnée, configure les actions, feedbacks, presets, variables et la connexion UDP.
+ *
+ * @function ModuleInstance#configureReception
+ * @description Prépare la réception des données UDP et gère les messages entrants.
+ *
+ * @function ModuleInstance#receptionWatcher
+ * @description Surveille la réception des réponses du serveur et met à jour le statut en conséquence.
+ *
+ * @function ModuleInstance#sendGpioPing
+ * @description Envoie périodiquement des pings GPIO au serveur pour maintenir la connexion.
+ *
+ * @function ModuleInstance#destroy
+ * @description Nettoie les ressources lors de la suppression du module.
+ *
+ * @function ModuleInstance#configUpdated
+ * @description Met à jour la configuration du module et reconfigure la réception.
+ *
+ * @function ModuleInstance#getConfigFields
+ * @description Retourne les champs de configuration pour l'interface web.
  */
 
 const {
@@ -35,8 +54,23 @@ const initFeedbacks = require('./feedbacks')
 const initPresets = require('./presets')
 const initVariables = require('./variables')
 
+const setGpioHeader = Buffer.from('INP') // En-tête pour la commande "Set GPIO"
+
+// Données pour la commande "Set GPIO" (ping)
+const ping = {
+  message: Buffer.concat([
+    setGpioHeader,
+    Buffer.from([0, 0, 0, 0]),
+    Buffer.from([0, 0, 0, 0]),
+    Buffer.from([0, 0])
+  ]),
+  interval: 500
+}
+
+const receptionWatcherIntervall = 3000
+
+// Fonction pour convertir un octet en une chaîne binaire de 8 bits
 function gpioBytesToBinaryString (gpioBytes) {
-  // Fonction pour convertir un octet en une chaîne binaire de 8 bits
   function byteToBinaryString (byte) {
     return byte.toString(2).padStart(8, '0') // Conversion en binaire et ajout de zéros à gauche si nécessaire
   }
@@ -48,14 +82,16 @@ function gpioBytesToBinaryString (gpioBytes) {
     .join(' ') // Joindre les résultats en une seule chaîne
 }
 
+// Définition de la classe ModuleInstance
 class ModuleInstance extends InstanceBase {
   constructor (internal) {
     super(internal)
   }
 
+  // Initialisation du module avec la configuration donnée
   async init (config) {
+    this.updateStatus(InstanceStatus.Connecting)
     this.config = config
-    this.updateStatus(InstanceStatus.Ok)
     // Couleurs prédéfinies pour les feedbacks
     this.colors = {
       white: combineRgb(255, 255, 255),
@@ -68,18 +104,33 @@ class ModuleInstance extends InstanceBase {
     initFeedbacks.bind(this)() // export feedbacks
     initPresets.bind(this)() // export presets
     initVariables.bind(this)() // export variables
+
+    this.setGpioHeader = setGpioHeader // En-tête pour la commande "Set GPIO"
+    this.gpioBytes = Buffer.from([0, 0, 0, 0]) // Valeur GPIO à envoyer
+    this.byteToBinaryString = gpioBytesToBinaryString // Fonction pour convertir un octet en une chaîne binaire de 8 bits
+
+    // Configuration connexion par défaut
     this.config.port = this.config.port || 7770 // Port par défaut
     this.config.host = this.config.host || '192.168.10.10' // Adresse IP par défaut
-    this.configureUdp() // on configure la connexion UDP
-    this.setGpioHeader = Buffer.from('INP') // En-tête pour la commande "Set GPIO"
-    this.gpioBytes = Buffer.from([0, 0, 0, 0]) // Valeur GPIO à envoyer
-    this.sendGpioPingId = null
-    this.sendGpioPing()
-    this.byteToBinaryString = gpioBytesToBinaryString // Fonction pour convertir un octet en une chaîne binaire de 8 bits
+
+    // Préparation à la réception des données
+    this.configureReception()
+
+    // Mise en place d'un ping pour vérifier la connexion
+    this.sendGpioPingId = null // ID du ping en cours
+    this.waitingForStatusResponse = false // Indique si on attend une réponse du serveur
+    this.sendGpioPing() // départ des pings
+
+    // Mise en place d’une surveillance de communication
+    this.receptionWatcherId = null // ID du watcher en cours
+    this.receptionWatcher()
+
+    // Module initialisé
     this.log('info', 'Microfilms GPIO started!') // Ajout du message "hello, world!" dans les logs
   }
 
-  configureUdp () {
+  // Préparation à la réception des données
+  configureReception () {
     // on supprime la connexion UDP existante
     if (this.udpClient) {
       this.udpClient.close()
@@ -106,35 +157,48 @@ class ModuleInstance extends InstanceBase {
           // Mettre à jour les feedbacks correspondants (gpio_state_bit_1, gpio_state_bit_2, ..., gpio_state_bit_32)
           this.checkFeedbacks(`gpio_state_bit_${i + 1}`)
         }
+        clearTimeout(this.receptionWatcherId) // on arrête le watcher
+        this.waitingForStatusResponse = false
+        this.updateStatus(InstanceStatus.Ok)
         this.log('info', `"Status" response from ${rinfo.address}:${rinfo.port} (GPIO=${this.byteToBinaryString(this.gpioBytes)})`)
       } else {
+        this.updateStatus(InstanceStatus.ConnectionFailure)
         this.log('error', 'Incorrect header in "Status" response')
       }
     })
   }
 
-    // Fonction récursive pour envoyer des pings à intervalle régulier
-  sendGpioPing () {
-    // Données pour la commande "Set GPIO"
-    const gpioBytes = Buffer.from([0, 0, 0, 0]) // Valeur GPIO à envoyer
-    const maskBytes = Buffer.from([0, 0, 0, 0]) // Masque pour modifier tous les GPIO
-    const reservedBytes = Buffer.from([0, 0]) // Octets réservés
-    // Crée le message "Set GPIO" avec l'en-tête, les GPIO et le masque
-    const message = Buffer.concat([this.setGpioHeader, gpioBytes, maskBytes, reservedBytes])
-
-    // Envoie le message "Set GPIO" au simulateur de robot
-    this.udpClient.send(message, this.config.port, this.config.host, (err) => {
-      if (err) {
-        this.log('error', `Error sending "Set GPIO" command: ${err}`)
-      } else {
-        this.log('info', 'Command "Set GPIO PING" sent successfully.')
+  // Surveillance de la réception
+  receptionWatcher () {
+    this.receptionWatcherId = setTimeout(() => {
+      if (this.waitingForStatusResponse) {
+        this.updateStatus(InstanceStatus.Disconnected)
+        this.waitingForStatusResponse = false
+        this.log('error', `No response from server after '${receptionWatcherIntervall / 1000}' seconds`)
       }
+    }, receptionWatcherIntervall)
+  }
 
-      // Rappeler cette fonction après l'intervalle défini (1 seconde)
-      this.sendGpioPingId = setTimeout(() => {
-        this.sendGpioPing() // Répéter l'envoi du ping après 1 seconde
-      }, 500)
-    })
+  // Fonction récursive pour envoyer des pings à intervalle régulier
+  sendGpioPing () {
+    // Envoie le message "Set GPIO" au simulateur de robot
+    this.log('info', this.waitingForStatusResponse)
+    if (!this.waitingForStatusResponse) {
+      this.udpClient.send(ping.message, this.config.port, this.config.host, (err) => {
+        if (err) {
+          this.log('error', `Error sending "Set GPIO" command: ${err}`)
+        } else {
+          this.waitingForStatusResponse = true
+          this.receptionWatcher()
+          this.log('info', 'Command "Set GPIO PING" sent successfully.')
+        }
+      })
+    }
+    // Rappeler cette fonction après l'intervalle défini
+    this.sendGpioPingId = setTimeout(() => {
+      this.log('info', 'Sending ping')
+      this.sendGpioPing()
+    }, ping.interval)
   }
 
   // Lorsque le module est supprimé
@@ -142,9 +206,10 @@ class ModuleInstance extends InstanceBase {
     this.log('debug', 'destroy')
   }
 
+  // Lorsque la configuration est mise à jour
   async configUpdated (config) {
     this.config = config
-    this.configureUdp()
+    this.configureReception()
     this.log('info', 'Config updated')
   }
 

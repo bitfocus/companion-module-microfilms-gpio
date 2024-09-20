@@ -110,7 +110,7 @@ server.on('error', (err) => {
 })
 
 // Lancement du serveur UDP
-const PORT = 5000
+const PORT = 7770
 server.bind(PORT, () => {
   console.log(`Serveur UDP en écoute sur le port ${PORT}`)
 })
