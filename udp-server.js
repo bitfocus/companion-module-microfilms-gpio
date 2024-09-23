@@ -66,21 +66,6 @@ function sendStatus (rinfo) {
   })
 }
 
-// // Exemple de modification de la fréquence d'envoi du statut (X secondes)
-// function setStatusInterval (seconds, rinfo) {
-//   sendStatusInterval = seconds * 1000 // Conversion en millisecondes
-//   startStatusEmitter(rinfo)
-// }
-
-// // Fonction pour émettre le statut périodiquement
-// function startStatusEmitter (rinfo) {
-//   if (statusIntervalId) clearInterval(statusIntervalId) // Stopper l'ancien intervalle si nécessaire
-
-//   statusIntervalId = setInterval(() => {
-//     sendStatus(rinfo)
-//   }, sendStatusInterval)
-// }
-
 // Événement lorsqu'un message est reçu
 server.on('message', (msg, rinfo) => {
   console.log(`Message reçu de ${rinfo.address}:${rinfo.port}`)

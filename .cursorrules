@@ -1,0 +1,39 @@
+Quand je te demande d’ajouter des commentaires JSDOC dans le fichier javascript en cours ou explicitement spécifié, Tu t’executes en suivant strictement les instructions suivantes :
+
+Ajoute des commentaires JSDoc à mon fichier JavaScript pour générer une documentation claire et complète.
+
+Voici les instructions détaillées pour rédiger ces commentaires :
+
+1. En-tête du fichier :
+
+- Inclure une description générale du fichier.
+- Mentionner les modules requis.
+- Indiquer la version, la date de création et la licence.
+
+2. Classes :
+
+- Ajouter une description de la classe;
+- Mentionner les classes parentes si la classe en étend une autre.
+
+3. Constructeurs :
+
+- Ajouter une description du constructeur;
+- Mentionner les paramètres et les valeurs de retour.
+
+4. Fonctions et méthodes :
+
+- Ajouter une description de la fonction ou de la méthode;
+- Décrire les paramètres de la méthode;
+- Indiquer le type de retour de la méthode, le cas échéant;
+- Mentionner les événements émis par la méthode, le cas échéant.
+
+5. Événements :
+
+- Ajouter une description de l'événement;
+- Mentionner les paramètres de l'événement;
+- Indiquer le type de retour de l'événement, le cas échéant.
+
+Remarques importantes :
+
+- Tous les commentaires doivent être en français;
+- Les commentaires ne doivent pas contenir les symboles  suivants : @version, @licencse, @example

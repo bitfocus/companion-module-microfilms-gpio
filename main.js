@@ -1,41 +1,19 @@
 /**
- * @file main.js
- * @description Ce fichier contient la définition de la classe ModuleInstance ainsi que des fonctions utilitaires pour la gestion des GPIO via UDP.
+ * @fileoverview Ce fichier contient la définition de la classe ModuleInstance,
+ * qui représente une instance de module pour la gestion des GPIO via un NetworkManager.
  *
+ * @module ModuleInstance
  * @requires @companion-module/base
- * @requires dgram
  * @requires ./upgrades
  * @requires ./actions
  * @requires ./feedbacks
  * @requires ./presets
  * @requires ./variables
+ * @requires ./network
  *
- * @class ModuleInstance
- * @extends InstanceBase
- *
- * @function gpioBytesToBinaryString
- * @description Convertit un tableau d'octets GPIO en une chaîne binaire.
- *
- * @function ModuleInstance#init
- * @description Initialise le module avec la configuration donnée, configure les actions, feedbacks, presets, variables et la connexion UDP.
- *
- * @function ModuleInstance#configureReception
- * @description Prépare la réception des données UDP et gère les messages entrants.
- *
- * @function ModuleInstance#receptionWatcher
- * @description Surveille la réception des réponses du serveur et met à jour le statut en conséquence.
- *
- * @function ModuleInstance#sendGpioPing
- * @description Envoie périodiquement des pings GPIO au serveur pour maintenir la connexion.
- *
- * @function ModuleInstance#destroy
- * @description Nettoie les ressources lors de la suppression du module.
- *
- * @function ModuleInstance#configUpdated
- * @description Met à jour la configuration du module et reconfigure la réception.
- *
- * @function ModuleInstance#getConfigFields
- * @description Retourne les champs de configuration pour l'interface web.
+ * @description
+ * Ce module initialise et gère les connexions réseau pour contrôler les GPIO,
+ * en écoutant les événements et en mettant à jour les variables et les feedbacks en conséquence.
  */
 
 const {
@@ -46,49 +24,31 @@ const {
   combineRgb
 } = require('@companion-module/base')
 
-const dgram = require('dgram')
-
 const UpgradeScripts = require('./upgrades')
 const initActions = require('./actions')
 const initFeedbacks = require('./feedbacks')
 const initPresets = require('./presets')
 const initVariables = require('./variables')
+const NetworkManager = require('./network')
 
-const setGpioHeader = Buffer.from('INP') // En-tête pour la commande "Set GPIO"
-
-// Données pour la commande "Set GPIO" (ping)
-const ping = {
-  message: Buffer.concat([
-    setGpioHeader,
-    Buffer.from([0, 0, 0, 0]),
-    Buffer.from([0, 0, 0, 0]),
-    Buffer.from([0, 0])
-  ]),
-  interval: 500
-}
-
-const receptionWatcherIntervall = 3000
-
-// Fonction pour convertir un octet en une chaîne binaire de 8 bits
-function gpioBytesToBinaryString (gpioBytes) {
-  function byteToBinaryString (byte) {
-    return byte.toString(2).padStart(8, '0') // Conversion en binaire et ajout de zéros à gauche si nécessaire
-  }
-
-  // Inversion des octets de gpioBytes, puis conversion de chaque octet en binaire
-  return Array.from(gpioBytes)
-    .reverse() // Inverser les octets
-    .map(byteToBinaryString) // Convertir chaque octet en binaire
-    .join(' ') // Joindre les résultats en une seule chaîne
-}
-
-// Définition de la classe ModuleInstance
+/**
+ * Classe représentant une instance de module.
+ * @extends InstanceBase
+ */
 class ModuleInstance extends InstanceBase {
+  /**
+   * Crée une instance de ModuleInstance.
+   * @param {Object} internal - L'objet interne.
+   */
   constructor (internal) {
     super(internal)
   }
 
-  // Initialisation du module avec la configuration donnée
+  /**
+   * Initialise le module avec la configuration donnée.
+   * @param {Object} config - La configuration du module.
+   * @returns {Promise<void>}
+   */
   async init (config) {
     this.updateStatus(InstanceStatus.Connecting)
     this.config = config
@@ -104,116 +64,79 @@ class ModuleInstance extends InstanceBase {
     initFeedbacks.bind(this)() // export feedbacks
     initPresets.bind(this)() // export presets
     initVariables.bind(this)() // export variables
-
-    this.setGpioHeader = setGpioHeader // En-tête pour la commande "Set GPIO"
     this.gpioBytes = Buffer.from([0, 0, 0, 0]) // Valeur GPIO à envoyer
-    this.byteToBinaryString = gpioBytesToBinaryString // Fonction pour convertir un octet en une chaîne binaire de 8 bits
-
-    // Configuration connexion par défaut
     this.config.port = this.config.port || 7770 // Port par défaut
     this.config.host = this.config.host || '192.168.10.10' // Adresse IP par défaut
 
-    // Préparation à la réception des données
-    this.configureReception()
+    // Initialiser le NetworkManager
+    this.networkManager = new NetworkManager(this.config, this.log.bind(this))
 
-    // Mise en place d'un ping pour vérifier la connexion
-    this.sendGpioPingId = null // ID du ping en cours
-    this.waitingForStatusResponse = false // Indique si on attend une réponse du serveur
-    this.sendGpioPing() // départ des pings
+    // Écouter les événements émis par le NetworkManager
+    this.networkManager.on('gpioStatus', (gpioBytes) => {
+      this.gpioBytes = gpioBytes
+      this.setVariableValues({ gpio: this.gpioBytes.readUInt32LE(0) })
+      for (let i = 0; i < 32; i++) {
+        const byteIndex = Math.floor(i / 8) // Indice de l'octet
+        const bitIndex = i % 8 // Position du bit dans l'octet
+        const bitValue = (this.gpioBytes[byteIndex] & (1 << bitIndex)) !== 0 ? 1 : 0
 
-    // Mise en place d’une surveillance de communication
-    this.receptionWatcherId = null // ID du watcher en cours
-    this.receptionWatcher()
+        // Mettre à jour la variable correspondante (state1, state2, ..., state32)
+        this.setVariableValues({ [`state${i + 1}`]: bitValue })
+        // Mettre à jour les feedbacks correspondants
+        // (gpio_state_bit_1, gpio_state_bit_2, ..., gpio_state_bit_32)
+        this.checkFeedbacks(`gpio_state_bit_${i + 1}`)
+      }
+      this.updateStatus(InstanceStatus.Ok)
+    })
+
+    this.networkManager.on('connectionFailure', (error) => {
+      this.log('error', `Connection failure: ${error}`)
+      this.updateStatus(InstanceStatus.ConnectionFailure)
+    })
+
+    this.networkManager.on('noResponse', (message) => {
+      this.log('error', `No response: ${message}`)
+      this.updateStatus(InstanceStatus.Disconnected)
+    })
+
+    this.networkManager.on('sendError', (error) => {
+      this.log('error', `Error sending "Set GPIO" command: ${error}`)
+    })
 
     // Module initialisé
-    this.log('info', 'Microfilms GPIO started!') // Ajout du message "hello, world!" dans les logs
+    this.log('info', 'Microfilms GPIO started!')
   }
 
-  // Préparation à la réception des données
-  configureReception () {
-    // on supprime la connexion UDP existante
-    if (this.udpClient) {
-      this.udpClient.close()
-      delete this.udpClient
-    }
-
-    // on crée une nouvelle connexion UDP
-    this.udpClient = dgram.createSocket('udp4')
-
-    // Écoute la réponse "Status" du serveur
-    this.udpClient.on('message', (msg, rinfo) => {
-      // Vérification de l'en-tête 'OUT'
-      const header = msg.subarray(0, 3).toString()
-      if (header === 'OUT') {
-        this.gpioBytes = msg.subarray(3, 7)
-        this.setVariableValues({ gpio: this.gpioBytes.readUInt32LE(0) })
-        for (let i = 0; i < 32; i++) {
-          const byteIndex = Math.floor(i / 8) // Indice de l'octet
-          const bitIndex = i % 8 // Position du bit dans l'octet
-          const bitValue = (this.gpioBytes[byteIndex] & (1 << bitIndex)) !== 0 ? 1 : 0
-
-          // Mettre à jour la variable correspondante (state1, state2, ..., state32)
-          this.setVariableValues({ [`state${i + 1}`]: bitValue })
-          // Mettre à jour les feedbacks correspondants (gpio_state_bit_1, gpio_state_bit_2, ..., gpio_state_bit_32)
-          this.checkFeedbacks(`gpio_state_bit_${i + 1}`)
-        }
-        clearTimeout(this.receptionWatcherId) // on arrête le watcher
-        this.waitingForStatusResponse = false
-        this.updateStatus(InstanceStatus.Ok)
-        this.log('info', `"Status" response from ${rinfo.address}:${rinfo.port} (GPIO=${this.byteToBinaryString(this.gpioBytes)})`)
-      } else {
-        this.updateStatus(InstanceStatus.ConnectionFailure)
-        this.log('error', 'Incorrect header in "Status" response')
-      }
-    })
-  }
-
-  // Surveillance de la réception
-  receptionWatcher () {
-    this.receptionWatcherId = setTimeout(() => {
-      if (this.waitingForStatusResponse) {
-        this.updateStatus(InstanceStatus.Disconnected)
-        this.waitingForStatusResponse = false
-        this.log('error', `No response from server after '${receptionWatcherIntervall / 1000}' seconds`)
-      }
-    }, receptionWatcherIntervall)
-  }
-
-  // Fonction récursive pour envoyer des pings à intervalle régulier
-  sendGpioPing () {
-    // Envoie le message "Set GPIO" au simulateur de robot
-    this.log('info', this.waitingForStatusResponse)
-    if (!this.waitingForStatusResponse) {
-      this.udpClient.send(ping.message, this.config.port, this.config.host, (err) => {
-        if (err) {
-          this.log('error', `Error sending "Set GPIO" command: ${err}`)
-        } else {
-          this.waitingForStatusResponse = true
-          this.receptionWatcher()
-          this.log('info', 'Command "Set GPIO PING" sent successfully.')
-        }
-      })
-    }
-    // Rappeler cette fonction après l'intervalle défini
-    this.sendGpioPingId = setTimeout(() => {
-      this.log('info', 'Sending ping')
-      this.sendGpioPing()
-    }, ping.interval)
-  }
-
-  // Lorsque le module est supprimé
+  /**
+   * Détruit le module.
+   * @returns {Promise<void>}
+   */
   async destroy () {
     this.log('debug', 'destroy')
+    if (this.networkManager) {
+      this.networkManager.destroy()
+    }
   }
 
-  // Lorsque la configuration est mise à jour
+  /**
+   * Met à jour la configuration du module.
+   * @param {Object} config - La nouvelle configuration du module.
+   * @returns {Promise<void>}
+   */
   async configUpdated (config) {
     this.config = config
-    this.configureReception()
+    // Mettre à jour le NetworkManager avec la nouvelle configuration
+    if (this.networkManager) {
+      this.networkManager.destroy()
+    }
+    this.networkManager = new NetworkManager(this.config, this.log.bind(this))
     this.log('info', 'Config updated')
   }
 
-  // Retourne les champs de configuration pour la configuration web
+  /**
+   * Retourne les champs de configuration pour la configuration web.
+   * @returns {Array<Object>} Les champs de configuration.
+   */
   getConfigFields () {
     return [
       {

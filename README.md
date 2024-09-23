@@ -66,7 +66,7 @@ Un simulateur de robot est inclus pour tester le module Companion sans avoir acc
 ### Utilisation du simulateur
 1. Lancez le simulateur de robot UDP :
 ``` bash
-node robot-simulator.js
+node udp-server.js
 ```
 2. Configurez l'IP et le port du simulateur dans le module Companion.
 3. Utilisez l'interface Companion pour envoyer des commandes et observer les réponses.
