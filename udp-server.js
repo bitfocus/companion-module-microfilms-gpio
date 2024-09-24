@@ -1,48 +1,37 @@
 /**
- * @file udp-server.js
- * @description Ce fichier implémente un serveur UDP pour gérer les états des GPIO et envoyer des messages de statut aux clients.
+ * Ce fichier implémente un serveur UDP pour contrôler 32 GPIO.
+ * Il gère la réception de commandes, la mise à jour de l'état des GPIO et l'envoi de statuts.
  *
- * @requires dgram
- *
- * @constant {Buffer} gpio - Buffer de 4 octets représentant les 32 GPIO, initialisés à 0.
- *
- * @function applyMaskAndUpdateGPIO
- * @description Applique un masque aux octets GPIO et met à jour les états des GPIO en conséquence.
- * @param {Buffer} gpioBytes - Nouveaux états des GPIO.
- * @param {Buffer} maskBytes - Masque pour appliquer les nouveaux états.
- *
- * @function sendStatus
- * @description Envoie un message de statut au client spécifié.
- * @param {Object} rinfo - Informations sur le client (adresse et port).
- *
- * @callback sendStatusCallback
- * @description Fonction de rappel pour gérer les erreurs lors de l'envoi du message de statut.
- * @param {Error} err - Erreur éventuelle lors de l'envoi du message.
- *
- * @function setStatusInterval
- * @description Modifie la fréquence d'envoi des messages de statut.
- * @param {number} seconds - Fréquence en secondes.
- * @param {Object} rinfo - Informations sur le client (adresse et port).
- *
- * @function startStatusEmitter
- * @description Démarre l'émission périodique des messages de statut.
- * @param {Object} rinfo - Informations sur le client (adresse et port).
- *
- * @constant {number} sendStatusInterval - Intervalle par défaut pour l'envoi des messages de statut (5 secondes).
- * @constant {NodeJS.Timeout} statusIntervalId - Identifiant de l'intervalle pour l'envoi périodique des messages de statut.
+ * Modules requis :
+ * - dgram (module natif de Node.js pour UDP)
  */
 
 const dgram = require('dgram')
 
-// Création d'un socket UDP
+/**
+ * Création d'un socket UDP pour le serveur
+ */
 const server = dgram.createSocket('udp4')
 
-// Variables internes
+/**
+ * Variables internes pour stocker l'état des GPIO
+ */
 const gpio = Buffer.alloc(4) // 4 octets pour les 32 GPIO (initialisés à 0)
 // const sendStatusInterval = 5000 // Par défaut, envoie un statut toutes les 5 secondes
 // const statusIntervalId = null
 
-// Fonction pour appliquer le masque et mettre à jour les GPIO
+/**
+ * Fonction pour appliquer le masque et mettre à jour les GPIO
+ *
+ * Cette fonction met à jour l'état des GPIO en appliquant un masque bit à bit.
+ * Pour chaque bit :
+ * - Si le bit du masque est à 1, la nouvelle valeur (gpioBytes) est appliquée.
+ * - Si le bit du masque est à 0, l'état actuel du GPIO est conservé.
+ * Cela permet de modifier sélectivement certains GPIO sans affecter les autres.
+ *
+ * @param {Buffer} gpioBytes - Les nouvelles valeurs des GPIO
+ * @param {Buffer} maskBytes - Le masque à appliquer
+ */
 function applyMaskAndUpdateGPIO (gpioBytes, maskBytes) {
   for (let i = 0; i < 4; i++) {
     // Met à jour l'état des GPIO en appliquant un masque bit à bit.
@@ -54,7 +43,14 @@ function applyMaskAndUpdateGPIO (gpioBytes, maskBytes) {
   }
 }
 
-// Fonction pour envoyer un message "Status" au client
+/**
+ * Fonction pour envoyer un message "Status" au client
+ *
+ * Cette fonction crée un message avec l'en-tête 'OUT' suivi de l'état actuel des GPIO,
+ * puis l'envoie au client spécifié.
+ *
+ * @param {Object} rinfo - Informations sur le client (adresse et port)
+ */
 function sendStatus (rinfo) {
   const statusMessage = Buffer.concat([Buffer.from('OUT'), gpio]) // Crée un message avec l'en-tête 'O', 'U', 'T'
   server.send(statusMessage, rinfo.port, rinfo.address, (err) => {
@@ -66,7 +62,15 @@ function sendStatus (rinfo) {
   })
 }
 
-// Événement lorsqu'un message est reçu
+/**
+ * Événement déclenché lorsqu'un message est reçu par le serveur
+ *
+ * Ce gestionnaire d'événements traite les messages entrants, vérifie leur validité,
+ * met à jour l'état des GPIO si nécessaire, et envoie une réponse de statut.
+ *
+ * @param {Buffer} msg - Le message reçu
+ * @param {Object} rinfo - Informations sur l'expéditeur (adresse et port)
+ */
 server.on('message', (msg, rinfo) => {
   console.log(`Message reçu de ${rinfo.address}:${rinfo.port}`)
 
@@ -88,13 +92,23 @@ server.on('message', (msg, rinfo) => {
   sendStatus(rinfo)
 })
 
-// Événement lorsqu'une erreur se produit
+/**
+ * Événement déclenché en cas d'erreur du serveur
+ *
+ * Ce gestionnaire d'événements affiche l'erreur et ferme le serveur.
+ *
+ * @param {Error} err - L'erreur survenue
+ */
 server.on('error', (err) => {
   console.error(`Erreur du serveur : ${err.stack}`)
   server.close()
 })
 
-// Lancement du serveur UDP
+/**
+ * Lancement du serveur UDP
+ *
+ * Cette section configure le port d'écoute du serveur et affiche un message de confirmation.
+ */
 const PORT = 7770
 server.bind(PORT, () => {
   console.log(`Serveur UDP en écoute sur le port ${PORT}`)

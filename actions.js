@@ -1,38 +1,33 @@
 /**
- * @file actions.js
- * @description Ce fichier définit les actions pour contrôler les bits GPIO via UDP, y compris les impulsions, les états UP et DOWN.
+ * Ce fichier définit les actions pour contrôler les bits GPIO d'un périphérique via UDP.
+ * Il permet d'envoyer des impulsions, d'activer (UP) ou de désactiver (DOWN) des bits GPIO spécifiques.
  *
- * @constant {number} impulseDelay - Délai entre l'impulsion UP et l'impulsion DOWN.
- *
- * @function
- * @description Définit les actions pour chaque bit GPIO (de 1 à 32) et les enregistre dans le module.
- *
- * @typedef {Object} ActionDefinition
- * @property {string} name - Nom de l'action.
- * @property {Array} options - Options de l'action.
- * @property {Function} callback - Fonction de rappel exécutée lors de l'action.
- *
- * @property {Object} actionDefinitions - Contient les définitions des actions pour chaque bit GPIO.
- *
- * @callback ActionCallback
- * @description Fonction de rappel pour envoyer les commandes UDP pour les états UP et DOWN des bits GPIO.
- *
- * @requires Buffer
- * @requires setTimeout
- * @requires this.udpClient
- * @requires this.config
- * @requires this.setGpioHeader
- * @requires this.byteToBinaryString
- * @requires this.log
+ * Modules requis :
+ * - Buffer (natif de Node.js)
+ * - UDP (supposé être importé ailleurs dans le code)
  */
 
 const impulseDelay = 100 // Délai entre l'impulsion UP et l'impulsion DOWN
 
+/**
+ * Fonction principale qui définit et configure les actions pour le contrôle des GPIO.
+ * Cette fonction est exportée et sera probablement appelée lors de l'initialisation du module.
+ *
+ * @returns {void}
+ */
 module.exports = function () {
   const actionDefinitions = {}
 
   for (let i = 0; i < 32; i++) {
-    // Impulses to GPIO bits
+    /**
+     * Action pour envoyer une impulsion à un bit GPIO spécifique.
+     * Cette action envoie d'abord un signal UP, attend un court délai, puis envoie un signal DOWN.
+     *
+     * @type {Object}
+     * @property {string} name - Le nom de l'action
+     * @property {Array} options - Les options de l'action (vide dans ce cas)
+     * @property {Function} callback - La fonction de rappel asynchrone exécutée lors de l'appel de l'action
+     */
     actionDefinitions[`impulse${i + 1}`] = {
       name: `Impulse to GPIO bit ${i + 1}`,
       options: [],
@@ -80,7 +75,14 @@ module.exports = function () {
       }
     }
 
-    // UP state to GPIO bits
+    /**
+     * Action pour activer (mettre à l'état haut) un bit GPIO spécifique.
+     *
+     * @type {Object}
+     * @property {string} name - Le nom de l'action
+     * @property {Array} options - Les options de l'action (vide dans ce cas)
+     * @property {Function} callback - La fonction de rappel asynchrone exécutée lors de l'appel de l'action
+     */
     actionDefinitions[`up${i + 1}`] = {
       name: `Up state to GPIO bit ${i + 1}`,
       options: [],
@@ -112,7 +114,14 @@ module.exports = function () {
       }
     }
 
-    // DOWN state to GPIO bits
+    /**
+     * Action pour désactiver (mettre à l'état bas) un bit GPIO spécifique.
+     *
+     * @type {Object}
+     * @property {string} name - Le nom de l'action
+     * @property {Array} options - Les options de l'action (vide dans ce cas)
+     * @property {Function} callback - La fonction de rappel asynchrone exécutée lors de l'appel de l'action
+     */
     actionDefinitions[`down${i + 1}`] = {
       name: `Down state to GPIO bit ${i + 1}`,
       options: [],
@@ -143,6 +152,9 @@ module.exports = function () {
     }
   }
 
+  /**
+   * Définit les actions configurées pour être utilisées par le système.
+   */
   this.setActionDefinitions(actionDefinitions)
 }
 

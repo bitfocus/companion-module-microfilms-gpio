@@ -1,37 +1,32 @@
 /**
- * @file presets.js
- * @description Ce fichier génère et définit les presets pour les actions "impulse" et "tow states" pour les bits GPIO via UDP.
- *
- * @function
- * @description Génère 32 presets pour les actions "impulse" et 32 presets pour les actions "tow states", puis les enregistre dans le module.
- *
- * @typedef {Object} PresetDefinition
- * @property {string} type - Type de l'élément de preset (par exemple, 'button').
- * @property {string} category - Catégorie du preset.
- * @property {string} name - Nom du preset.
- * @property {Object} style - Style du bouton de preset.
- * @property {string} style.text - Texte affiché sur le bouton.
- * @property {number} style.size - Taille du texte.
- * @property {string} style.color - Couleur du texte.
- * @property {string} style.bgcolor - Couleur de fond du bouton.
- * @property {Array} steps - Étapes de l'action du bouton.
- * @property {Array} steps.down - Actions à exécuter lors de l'appui sur le bouton.
- * @property {Array} steps.up - Actions à exécuter lors du relâchement du bouton.
- * @property {Array} feedbacks - Feedbacks associés au bouton.
- * @property {string} feedbacks.feedbackId - Identifiant du feedback.
- * @property {Object} feedbacks.options - Options de feedback.
- * @property {string} feedbacks.options.colorRed - Couleur rouge pour le feedback.
- * @property {string} feedbacks.options.colorGreen - Couleur verte pour le feedback.
- *
- * @requires this.setPresetDefinitions
- * @requires this.colors
+ * Ce fichier définit les préréglages (presets) pour les actions "impulse" et "two states" sur 32 bits GPIO.
+ * Il génère des boutons pour chaque bit, avec des styles et des actions prédéfinis.
  */
 
+/**
+ * Fonction principale qui génère et définit les préréglages pour les actions GPIO.
+ * Cette fonction est exportée et sera probablement appelée lors de l'initialisation du module.
+ *
+ * @returns {void}
+ */
 module.exports = function () {
   const presetDefinitions = {}
 
-  // Générer 32 presets pour les actions "impulse"
+  /**
+   * Génère 32 préréglages pour les actions "impulse"
+   */
   for (let i = 0; i < 32; i++) {
+    /**
+     * Définition d'un préréglage pour une action "impulse" sur un bit GPIO spécifique
+     *
+     * @type {Object}
+     * @property {string} type - Le type de préréglage (bouton dans ce cas)
+     * @property {string} category - La catégorie du préréglage
+     * @property {string} name - Le nom du préréglage
+     * @property {Object} style - Le style visuel du bouton
+     * @property {Array} steps - Les étapes d'action du bouton (appui et relâchement)
+     * @property {Array} feedbacks - Les retours visuels basés sur l'état du GPIO
+     */
     presetDefinitions[`impulse${i + 1}`] = {
       type: 'button',
       category: 'Divers',
@@ -64,8 +59,21 @@ module.exports = function () {
     }
   }
 
-  // Générer 32 presets pour les actions "Tow states"
+  /**
+   * Génère 32 préréglages pour les actions "Two states"
+   */
   for (let i = 0; i < 32; i++) {
+    /**
+     * Définition d'un préréglage pour une action "Two states" sur un bit GPIO spécifique
+     *
+     * @type {Object}
+     * @property {string} type - Le type de préréglage (bouton dans ce cas)
+     * @property {string} category - La catégorie du préréglage
+     * @property {string} name - Le nom du préréglage
+     * @property {Object} style - Le style visuel du bouton
+     * @property {Array} steps - Les étapes d'action du bouton (appui et relâchement)
+     * @property {Array} feedbacks - Les retours visuels basés sur l'état du GPIO
+     */
     presetDefinitions[`towStates${i + 1}`] = {
       type: 'button',
       category: 'Divers',
@@ -102,6 +110,8 @@ module.exports = function () {
     }
   }
 
-  // Définir tous les presets générés
+  /**
+   * Définit tous les préréglages générés pour être utilisés par le système
+   */
   this.setPresetDefinitions(presetDefinitions)
 }

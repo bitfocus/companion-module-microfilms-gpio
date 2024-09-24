@@ -74,6 +74,7 @@ node udp-server.js
 ## Structure des fichiers
 
 - **main.js** : Point d'entrée principal du module Companion, gère la configuration et les communications UDP.
+- **network.js** : Gère la connexion et la communication avec le robot via UDP.
 - **actions.js** : Définit les actions impulse et tow states pour les 32 bits GPIO.
 - **feedbacks.js** : Gère les feedbacks en fonction de l'état des bits GPIO.
 - **presets.js** : Crée les presets de boutons pour contrôler les GPIO.

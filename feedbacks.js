@@ -1,47 +1,46 @@
 /**
- * @file feedbacks.js
- * @description Ce fichier définit les feedbacks pour les états des bits GPIO via UDP, permettant de changer la couleur de fond en fonction de l'état du bit.
- *
- * @function
- * @description Génère 32 feedbacks pour les états des bits GPIO, changeant la couleur de fond en vert si le bit est activé et en rouge si le bit est désactivé.
- *
- * @typedef {Object} FeedbackDefinition
- * @property {string} type - Type de feedback (par exemple, 'advanced').
- * @property {string} name - Nom du feedback.
- * @property {string} description - Description du feedback.
- * @property {Array} options - Options du feedback.
- * @property {string} options.type - Type de l'option (par exemple, 'colorpicker').
- * @property {string} options.label - Étiquette de l'option.
- * @property {string} options.id - Identifiant de l'option.
- * @property {string} options.default - Valeur par défaut de l'option.
- * @property {Function} callback - Fonction de rappel exécutée pour déterminer la couleur de fond en fonction de l'état du bit GPIO.
- *
- * @callback FeedbackCallback
- * @description Fonction de rappel pour vérifier l'état d'un bit GPIO et retourner la couleur de fond appropriée.
- *
- * @requires this.colors
- * @requires this.gpioBytes
- * @requires this.setFeedbackDefinitions
+ * Ce fichier définit les feedbacks pour 32 bits GPIO.
+ * Il génère dynamiquement des définitions de feedback pour chaque bit GPIO,
+ * permettant de changer la couleur de fond en fonction de l'état du bit.
  */
 
+/**
+ * Fonction asynchrone qui définit les feedbacks pour les états des GPIO.
+ * Cette fonction est exportée et sera probablement appelée lors de l'initialisation du module.
+ *
+ * @returns {Promise<void>}
+ */
 module.exports = async function () {
   const feedbackDefinitions = {}
 
+  /**
+   * Génère les définitions de feedback pour les 32 bits GPIO
+   */
   for (let i = 0; i < 32; i++) {
+    /**
+     * Définition d'un feedback pour un bit GPIO spécifique
+     *
+     * @type {Object}
+     * @property {string} type - Le type de feedback (avancé dans ce cas)
+     * @property {string} name - Le nom descriptif du feedback
+     * @property {string} description - La description du comportement du feedback
+     * @property {Array} options - Les options configurables du feedback
+     * @property {Function} callback - La fonction de rappel qui détermine l'état du feedback
+     */
     feedbackDefinitions[`gpio_state_bit_${i + 1}`] = {
       type: 'advanced',
       name: `GPIO state bit ${i + 1}`,
-      description: `If GPIO state bit ${i + 1} is on, change the background color to green, else change to red`,
+      description: `Si le bit ${i + 1} de l'état GPIO est activé, change la couleur de fond en vert, sinon en rouge`,
       options: [
         {
           type: 'colorpicker',
-          label: 'Background color red (off)',
+          label: 'Couleur de fond rouge (désactivé)',
           id: 'colorRed',
           default: this.colors.red
         },
         {
           type: 'colorpicker',
-          label: 'Background color green (on)',
+          label: 'Couleur de fond vert (activé)',
           id: 'colorGreen',
           default: this.colors.green
         }
@@ -63,6 +62,8 @@ module.exports = async function () {
     }
   }
 
-  // Définir tous les feedbacks générés
+  /**
+   * Définit tous les feedbacks générés pour être utilisés par le système
+   */
   this.setFeedbackDefinitions(feedbackDefinitions)
 }

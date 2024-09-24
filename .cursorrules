@@ -36,4 +36,5 @@ Voici les instructions détaillées pour rédiger ces commentaires :
 Remarques importantes :
 
 - Tous les commentaires doivent être en français;
-- Les commentaires ne doivent pas contenir les symboles  suivants : @version, @licencse, @example
+- Les commentaires ne doivent pas contenir les symboles  suivants : @version, @licencse, @example;
+- Ne commente jamais les paramètres au sein d'une fonction ou d'une méthode (@param).
