@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: actions.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: actions.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>/**
+ * Ce fichier définit les actions pour contrôler les bits GPIO d'un périphérique via UDP.
+ * Il permet d'envoyer des impulsions, d'activer (UP) ou de désactiver (DOWN) des bits GPIO spécifiques.
+ *
+ * Modules requis :
+ * - Buffer (natif de Node.js)
+ * - UDP (supposé être importé ailleurs dans le code)
+ */
+
+const impulseDelay = 100 // Délai entre l'impulsion UP et l'impulsion DOWN
+
+/**
+ * Fonction principale qui définit et configure les actions pour le contrôle des GPIO.
+ * Cette fonction est exportée et sera probablement appelée lors de l'initialisation du module.
+ *
+ * @returns {void}
+ */
+module.exports = function () {
+  const actionDefinitions = {}
+
+  for (let i = 0; i &lt; 32; i++) {
+    /**
+     * Action pour envoyer une impulsion à un bit GPIO spécifique.
+     * Cette action envoie d'abord un signal UP, attend un court délai, puis envoie un signal DOWN.
+     *
+     * @type {Object}
+     * @property {string} name - Le nom de l'action
+     * @property {Array} options - Les options de l'action (vide dans ce cas)
+     * @property {Function} callback - La fonction de rappel asynchrone exécutée lors de l'appel de l'action
+     */
+    actionDefinitions[`impulse${i + 1}`] = {
+      name: `Impulse to GPIO bit ${i + 1}`,
+      options: [],
+      callback: async () => {
+        // Calculer dans quel octet et quel bit se situe la commande
+        const gpioBytesUp = Buffer.alloc(4) // 4 octets pour les GPIO (32 bits)
+        gpioBytesUp[Math.floor(i / 8)] = 1 &lt;&lt; (i % 8) // Positionner le bit correspondant à '1'
+
+        const maskBytes = Buffer.alloc(4) // 4 octets pour le masque
+        maskBytes[Math.floor(i / 8)] = 1 &lt;&lt; (i % 8) // Masquer uniquement le bit correspondant
+
+        const reservedBytes = Buffer.from([0, 0]) // Octets réservés
+
+        // Crée le message "Set GPIO" avec l'en-tête, les GPIO et le masque
+        const msgUp = Buffer.concat([this.setGpioHeader, gpioBytesUp, maskBytes, reservedBytes])
+
+        // send UP
+        this.udpClient.send(msgUp, this.config.port, this.config.host, (err) => {
+          if (err) {
+            this.log('error', `Error sending UDP message: ${err}`)
+          } else {
+            const gpioBytesDown = Buffer.alloc(4) // Tous les bits à '0' pour DOWN
+            const msgDown = Buffer.concat([this.setGpioHeader, gpioBytesDown, maskBytes, reservedBytes])
+
+            setTimeout(() => {
+              // send DOWN
+              this.udpClient.send(msgDown, this.config.port, this.config.host, (err) => {
+                if (err) {
+                  this.log('error', `Error sending UDP message: ${err}`)
+                } else {
+                  this.log(
+                    'info',
+                    `"Set GPIO bit ${i + 1} DOWN" sent to ${this.config.host}:${this.config.port} (GPIO=${this.byteToBinaryString(gpioBytesDown)})`
+                  )
+                }
+              })
+            }, impulseDelay)
+
+            this.log(
+              'info',
+              `"Set GPIO bit ${i + 1} UP" sent to ${this.config.host}:${this.config.port} (GPIO=${this.byteToBinaryString(gpioBytesUp)})`
+            )
+          }
+        })
+      }
+    }
+
+    /**
+     * Action pour activer (mettre à l'état haut) un bit GPIO spécifique.
+     *
+     * @type {Object}
+     * @property {string} name - Le nom de l'action
+     * @property {Array} options - Les options de l'action (vide dans ce cas)
+     * @property {Function} callback - La fonction de rappel asynchrone exécutée lors de l'appel de l'action
+     */
+    actionDefinitions[`up${i + 1}`] = {
+      name: `Up state to GPIO bit ${i + 1}`,
+      options: [],
+      callback: async () => {
+        // Calculer dans quel octet et quel bit se situe la commande
+        const gpioBytesUp = Buffer.alloc(4) // 4 octets pour les GPIO (32 bits)
+        gpioBytesUp[Math.floor(i / 8)] = 1 &lt;&lt; (i % 8) // Positionner le bit correspondant à '1'
+
+        const maskBytes = Buffer.alloc(4) // 4 octets pour le masque
+        maskBytes[Math.floor(i / 8)] = 1 &lt;&lt; (i % 8) // Masquer uniquement le bit correspondant
+
+        const reservedBytes = Buffer.from([0, 0]) // Octets réservés
+
+        // Crée le message "Set GPIO" avec l'en-tête, les GPIO et le masque
+        const msgUp = Buffer.concat([this.setGpioHeader, gpioBytesUp, maskBytes, reservedBytes])
+
+        // send UP
+        this.udpClient.send(msgUp, this.config.port, this.config.host, (err) => {
+          if (err) {
+            this.log('error', `Error sending UDP message: ${err}`)
+          } else {
+            // relance du ping
+            this.log(
+              'info',
+              `"Set GPIO bit ${i + 1} UP" sent to ${this.config.host}:${this.config.port} (GPIO=${this.byteToBinaryString(gpioBytesUp)})`
+            )
+          }
+        })
+      }
+    }
+
+    /**
+     * Action pour désactiver (mettre à l'état bas) un bit GPIO spécifique.
+     *
+     * @type {Object}
+     * @property {string} name - Le nom de l'action
+     * @property {Array} options - Les options de l'action (vide dans ce cas)
+     * @property {Function} callback - La fonction de rappel asynchrone exécutée lors de l'appel de l'action
+     */
+    actionDefinitions[`down${i + 1}`] = {
+      name: `Down state to GPIO bit ${i + 1}`,
+      options: [],
+      callback: async () => {
+        // Calculer dans quel octet et quel bit se situe la commande
+        const gpioBytesDown = Buffer.alloc(4) // 4 octets pour les GPIO (32 bits)
+
+        const maskBytes = Buffer.alloc(4) // 4 octets pour le masque
+        maskBytes[Math.floor(i / 8)] = 1 &lt;&lt; (i % 8) // Masquer uniquement le bit correspondant
+
+        const reservedBytes = Buffer.from([0, 0]) // Octets réservés
+
+        // Crée le message "Set GPIO" avec l'en-tête, les GPIO et le masque
+        const msgDown = Buffer.concat([this.setGpioHeader, gpioBytesDown, maskBytes, reservedBytes])
+
+        // send DOWN
+        this.udpClient.send(msgDown, this.config.port, this.config.host, (err) => {
+          if (err) {
+            this.log('error', `Error sending UDP message: ${err}`)
+          } else {
+            this.log(
+              'info',
+              `"Set GPIO bit ${i + 1} DOWN" sent to ${this.config.host}:${this.config.port} (GPIO=${this.byteToBinaryString(gpioBytesDown)})`
+            )
+          }
+        })
+      }
+    }
+  }
+
+  /**
+   * Définit les actions configurées pour être utilisées par le système.
+   */
+  this.setActionDefinitions(actionDefinitions)
+}
+
+</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Modules</h3><ul><li><a href="module-ModuleInstance.html">ModuleInstance</a></li><li><a href="module-NetworkManager.html">NetworkManager</a></li></ul><h3>Classes</h3><ul><li><a href="module-ModuleInstance-ModuleInstance.html">ModuleInstance</a></li><li><a href="module-NetworkManager-NetworkManager.html">NetworkManager</a></li></ul><h3>Global</h3><ul><li><a href="global.html#PORT">PORT</a></li><li><a href="global.html#applyMaskAndUpdateGPIO">applyMaskAndUpdateGPIO</a></li><li><a href="global.html#dgram">dgram</a></li><li><a href="global.html#gpio">gpio</a></li><li><a href="global.html#impulseDelay">impulseDelay</a></li><li><a href="global.html#sendStatus">sendStatus</a></li><li><a href="global.html#server">server</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.3</a> on Tue Sep 24 2024 08:35:15 GMT+0200 (Central European Summer Time)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>

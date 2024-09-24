@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: network.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: network.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>/**
+ * @fileoverview Ce fichier contient la définition de la classe NetworkManager,
+ * qui gère les connexions réseau pour envoyer et recevoir des commandes GPIO.
+ *
+ * @module NetworkManager
+ * @requires dgram
+ * @requires events
+ *
+ * @description
+ * Ce module utilise UDP pour envoyer des commandes GPIO et écouter les réponses du serveur.
+ * Il émet des événements en fonction des réponses reçues et des erreurs de connexion.
+ */
+
+const dgram = require('dgram')
+const EventEmitter = require('events')
+
+/**
+ * Classe représentant le gestionnaire de réseau pour les commandes GPIO.
+ * @extends EventEmitter
+ */
+class NetworkManager extends EventEmitter {
+  /**
+   * Crée une instance de NetworkManager.
+   * @param {Object} config - La configuration réseau.
+   * @param {Function} log - La fonction de journalisation.
+   */
+  constructor (config, log) {
+    super()
+    this.config = config
+    this.log = log
+    this.setGpioHeader = Buffer.from('INP')
+    this.gpioBytes = Buffer.from([0, 0, 0, 0])
+    this.pingInterval = 500
+    this.receptionWatcherInterval = 3000
+    this.waitingForStatusResponse = false
+    this.pingMessage = Buffer.concat([
+      this.setGpioHeader,
+      Buffer.from([0, 0, 0, 0]),
+      Buffer.from([0, 0, 0, 0]),
+      Buffer.from([0, 0])
+    ])
+    this.sendGpioPingId = null
+    this.receptionWatcherId = null
+    this.configureReception()
+    this.sendGpioPing()
+  }
+
+  /**
+   * Configure la réception des messages UDP.
+   * @returns {void}
+   */
+  configureReception () {
+    // Supprimer la connexion UDP existante
+    if (this.udpClient) {
+      this.udpClient.close()
+      delete this.udpClient
+    }
+
+    // Créer une nouvelle connexion UDP
+    this.udpClient = dgram.createSocket('udp4')
+
+    // Écouter la réponse "Status" du serveur
+    this.udpClient.on('message', (msg, rinfo) => {
+      // Vérifier l'en-tête 'OUT'
+      const header = msg.subarray(0, 3).toString()
+      if (header === 'OUT') {
+        this.gpioBytes = msg.subarray(3, 7)
+        clearTimeout(this.receptionWatcherId)
+        this.waitingForStatusResponse = false
+        this.emit('gpioStatus', this.gpioBytes)
+        this.log('info', `"Status" response from ${rinfo.address}:${rinfo.port} (GPIO=${this.byteToBinaryString(this.gpioBytes)})`)
+      } else {
+        this.emit('connectionFailure', 'Incorrect header in "Status" response')
+        this.log('error', 'Incorrect header in "Status" response')
+      }
+    })
+  }
+
+  /**
+   * Surveille la réception des réponses du serveur.
+   * @returns {void}
+   */
+  receptionWatcher () {
+    this.receptionWatcherId = setTimeout(() => {
+      if (this.waitingForStatusResponse) {
+        this.waitingForStatusResponse = false
+        this.emit('noResponse', `No response from server after '${this.receptionWatcherInterval / 1000}' seconds`)
+        this.log('error', `No response from server after '${this.receptionWatcherInterval / 1000}' seconds`)
+      }
+    }, this.receptionWatcherInterval)
+  }
+
+  /**
+   * Envoie un ping GPIO au serveur.
+   * @returns {void}
+   */
+  sendGpioPing () {
+    if (!this.waitingForStatusResponse) {
+      this.udpClient.send(this.pingMessage, this.config.port, this.config.host, (err) => {
+        if (err) {
+          this.emit('sendError', err)
+          this.log('error', `Error sending "Set GPIO" command: ${err}`)
+        } else {
+          this.waitingForStatusResponse = true
+          this.receptionWatcher()
+          this.log('info', 'Command "Set GPIO PING" sent successfully.')
+        }
+      })
+    }
+    // Rappeler cette fonction après l'intervalle défini
+    this.sendGpioPingId = setTimeout(() => {
+      this.log('info', 'Sending ping')
+      this.sendGpioPing()
+    }, this.pingInterval)
+  }
+
+  /**
+   * Convertit un octet en une chaîne binaire de 8 bits.
+   * @param {Buffer} gpioBytes - Les octets GPIO à convertir.
+   * @returns {string} La chaîne binaire.
+   */
+  byteToBinaryString (gpioBytes) {
+    function byteToBinaryString (byte) {
+      return byte.toString(2).padStart(8, '0') // Conversion en binaire et ajout de zéros à gauche si nécessaire
+    }
+
+    // Inversion des octets de gpioBytes, puis conversion de chaque octet en binaire
+    return Array.from(gpioBytes)
+      .reverse()
+      .map(byteToBinaryString)
+      .join(' ')
+  }
+
+  /**
+   * Détruit le gestionnaire de réseau.
+   * @returns {void}
+   */
+  destroy () {
+    if (this.sendGpioPingId) clearTimeout(this.sendGpioPingId)
+    if (this.receptionWatcherId) clearTimeout(this.receptionWatcherId)
+    if (this.udpClient) {
+      this.udpClient.close()
+      delete this.udpClient
+    }
+  }
+}
+
+module.exports = NetworkManager
+</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Modules</h3><ul><li><a href="module-ModuleInstance.html">ModuleInstance</a></li><li><a href="module-NetworkManager.html">NetworkManager</a></li></ul><h3>Classes</h3><ul><li><a href="module-ModuleInstance-ModuleInstance.html">ModuleInstance</a></li><li><a href="module-NetworkManager-NetworkManager.html">NetworkManager</a></li></ul><h3>Global</h3><ul><li><a href="global.html#PORT">PORT</a></li><li><a href="global.html#applyMaskAndUpdateGPIO">applyMaskAndUpdateGPIO</a></li><li><a href="global.html#dgram">dgram</a></li><li><a href="global.html#gpio">gpio</a></li><li><a href="global.html#impulseDelay">impulseDelay</a></li><li><a href="global.html#sendStatus">sendStatus</a></li><li><a href="global.html#server">server</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.3</a> on Tue Sep 24 2024 08:35:15 GMT+0200 (Central European Summer Time)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>

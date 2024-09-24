@@ -129,10 +129,6 @@ remoteSeedUsers*
 # Vhost Nginx
 nginx_vhost
 
-# La documentation
-docs
-out
-
 package-lock.json
 
 # Les utilisateurs par défaut (seed)

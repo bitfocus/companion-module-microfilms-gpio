@@ -4,7 +4,8 @@
       "dictionaries": ["jsdoc"]
   },
   "source": {
-      "include": ["src"],
+      "include": ["."],
+      "exclude": ["node_modules"],
       "includePattern": ".+\\.js(doc|x)?$",
       "excludePattern": "(^|\\/|\\\\)_"
   },
@@ -15,8 +16,9 @@
   },
   "opts": {
       "encoding": "utf8",
-      "destination": "./docs/",
+      "destination": "./docs",
       "recurse": true,
-      "verbose": true
+      "verbose": true,
+      "readme": "./README.md"
   }
 }

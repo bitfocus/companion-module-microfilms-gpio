@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: udp-server.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: udp-server.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>/**
+ * Ce fichier implémente un serveur UDP pour contrôler 32 GPIO.
+ * Il gère la réception de commandes, la mise à jour de l'état des GPIO et l'envoi de statuts.
+ *
+ * Modules requis :
+ * - dgram (module natif de Node.js pour UDP)
+ */
+
+const dgram = require('dgram')
+
+/**
+ * Création d'un socket UDP pour le serveur
+ */
+const server = dgram.createSocket('udp4')
+
+/**
+ * Variables internes pour stocker l'état des GPIO
+ */
+const gpio = Buffer.alloc(4) // 4 octets pour les 32 GPIO (initialisés à 0)
+// const sendStatusInterval = 5000 // Par défaut, envoie un statut toutes les 5 secondes
+// const statusIntervalId = null
+
+/**
+ * Fonction pour appliquer le masque et mettre à jour les GPIO
+ *
+ * Cette fonction met à jour l'état des GPIO en appliquant un masque bit à bit.
+ * Pour chaque bit :
+ * - Si le bit du masque est à 1, la nouvelle valeur (gpioBytes) est appliquée.
+ * - Si le bit du masque est à 0, l'état actuel du GPIO est conservé.
+ * Cela permet de modifier sélectivement certains GPIO sans affecter les autres.
+ *
+ * @param {Buffer} gpioBytes - Les nouvelles valeurs des GPIO
+ * @param {Buffer} maskBytes - Le masque à appliquer
+ */
+function applyMaskAndUpdateGPIO (gpioBytes, maskBytes) {
+  for (let i = 0; i &lt; 4; i++) {
+    // Met à jour l'état des GPIO en appliquant un masque bit à bit.
+    // Pour chaque bit :
+    // - Si le bit du masque est à 1, la nouvelle valeur (gpioBytes) est appliquée.
+    // - Si le bit du masque est à 0, l'état actuel du GPIO est conservé.
+    // Cela permet de modifier sélectivement certains GPIO sans affecter les autres.
+    gpio[i] = (gpio[i] &amp; ~maskBytes[i]) | (gpioBytes[i] &amp; maskBytes[i])
+  }
+}
+
+/**
+ * Fonction pour envoyer un message "Status" au client
+ *
+ * Cette fonction crée un message avec l'en-tête 'OUT' suivi de l'état actuel des GPIO,
+ * puis l'envoie au client spécifié.
+ *
+ * @param {Object} rinfo - Informations sur le client (adresse et port)
+ */
+function sendStatus (rinfo) {
+  const statusMessage = Buffer.concat([Buffer.from('OUT'), gpio]) // Crée un message avec l'en-tête 'O', 'U', 'T'
+  server.send(statusMessage, rinfo.port, rinfo.address, (err) => {
+    if (err) {
+      console.error('Erreur lors de l\'envoi du message :', err)
+    } else {
+      console.log(`Message "Status" envoyé à ${rinfo.address}:${rinfo.port}`)
+    }
+  })
+}
+
+/**
+ * Événement déclenché lorsqu'un message est reçu par le serveur
+ *
+ * Ce gestionnaire d'événements traite les messages entrants, vérifie leur validité,
+ * met à jour l'état des GPIO si nécessaire, et envoie une réponse de statut.
+ *
+ * @param {Buffer} msg - Le message reçu
+ * @param {Object} rinfo - Informations sur l'expéditeur (adresse et port)
+ */
+server.on('message', (msg, rinfo) => {
+  console.log(`Message reçu de ${rinfo.address}:${rinfo.port}`)
+
+  // Vérification de l'en-tête 'INP' en utilisant subarray()
+  const header = msg.subarray(0, 3).toString() // Utilisation de subarray pour remplacer slice
+  if (header !== 'INP') {
+    console.error('Commande invalide, en-tête incorrect')
+    return
+  }
+
+  // Récupération des 4 octets pour les GPIO et les 4 octets pour le masque en utilisant subarray()
+  const gpioBytes = msg.subarray(3, 7) // Utilisation de subarray pour remplacer slice
+  const maskBytes = msg.subarray(7, 11) // Utilisation de subarray pour remplacer slice
+
+  // Appliquer le masque et mettre à jour l'état interne des GPIO
+  applyMaskAndUpdateGPIO(gpioBytes, maskBytes)
+
+  // Envoyer une réponse "Status" immédiatement après la commande reçue
+  sendStatus(rinfo)
+})
+
+/**
+ * Événement déclenché en cas d'erreur du serveur
+ *
+ * Ce gestionnaire d'événements affiche l'erreur et ferme le serveur.
+ *
+ * @param {Error} err - L'erreur survenue
+ */
+server.on('error', (err) => {
+  console.error(`Erreur du serveur : ${err.stack}`)
+  server.close()
+})
+
+/**
+ * Lancement du serveur UDP
+ *
+ * Cette section configure le port d'écoute du serveur et affiche un message de confirmation.
+ */
+const PORT = 7770
+server.bind(PORT, () => {
+  console.log(`Serveur UDP en écoute sur le port ${PORT}`)
+})
+</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Modules</h3><ul><li><a href="module-ModuleInstance.html">ModuleInstance</a></li><li><a href="module-NetworkManager.html">NetworkManager</a></li></ul><h3>Classes</h3><ul><li><a href="module-ModuleInstance-ModuleInstance.html">ModuleInstance</a></li><li><a href="module-NetworkManager-NetworkManager.html">NetworkManager</a></li></ul><h3>Global</h3><ul><li><a href="global.html#PORT">PORT</a></li><li><a href="global.html#applyMaskAndUpdateGPIO">applyMaskAndUpdateGPIO</a></li><li><a href="global.html#dgram">dgram</a></li><li><a href="global.html#gpio">gpio</a></li><li><a href="global.html#impulseDelay">impulseDelay</a></li><li><a href="global.html#sendStatus">sendStatus</a></li><li><a href="global.html#server">server</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.3</a> on Tue Sep 24 2024 08:35:15 GMT+0200 (Central European Summer Time)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>
