@@ -29,7 +29,7 @@ module.exports = async function () {
      */
     feedbackDefinitions[`gpio_state_bit_${i + 1}`] = {
       type: 'advanced',
-      name: `GPIO state bit ${i + 1}`,
+      name: `Gpio${String(i + 1).padStart(2, '0')}`,
       description: `Si le bit ${i + 1} de l'état GPIO est activé, change la couleur de fond en vert, sinon en rouge`,
       options: [
         {

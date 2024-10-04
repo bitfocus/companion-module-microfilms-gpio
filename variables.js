@@ -25,8 +25,8 @@ module.exports = async function () {
      * @property {string} name - Le nom descriptif de la variable
      */
     variableDefinitions.push({
-      variableId: `state${i + 1}`, // Créer un ID unique pour chaque bit (de state1 à state32)
-      name: `GPIO bit ${i + 1} state` // Nommer chaque variable en fonction du bit
+      variableId: `${String(i + 1).padStart(2, '0')}`, // Créer un ID unique pour chaque bit (de state1 à state32)
+      name: `Gpio${String(i + 1).padStart(2, '0')}` // Nommer chaque variable en fonction du bit
     })
   }
 
@@ -38,8 +38,8 @@ module.exports = async function () {
    * @property {string} name - Le nom descriptif de la variable
    */
   variableDefinitions.push({
-    variableId: 'gpio',
-    name: 'GPIO Bytes (Little Endian)'
+    variableId: 'Full',
+    name: 'GPIO Full (Little Endian)'
   })
 
   /**

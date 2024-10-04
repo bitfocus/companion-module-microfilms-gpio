@@ -11,7 +11,7 @@ const impulseDelay = 100 // Délai entre l'impulsion UP et l'impulsion DOWN
 
 /**
  * Fonction principale qui définit et configure les actions pour le contrôle des GPIO.
- * Cette fonction est exportée et sera probablement appelée lors de l'initialisation du module.
+ * Cette fonction est exportée et sera appelée lors de l'initialisation du module.
  *
  * @returns {void}
  */
@@ -29,7 +29,7 @@ module.exports = function () {
      * @property {Function} callback - La fonction de rappel asynchrone exécutée lors de l'appel de l'action
      */
     actionDefinitions[`impulse${i + 1}`] = {
-      name: `Impulse to GPIO bit ${i + 1}`,
+      name: `Imp${String(i + 1).padStart(2, '0')}`,
       options: [],
       callback: async () => {
         // Calculer dans quel octet et quel bit se situe la commande
@@ -84,7 +84,7 @@ module.exports = function () {
      * @property {Function} callback - La fonction de rappel asynchrone exécutée lors de l'appel de l'action
      */
     actionDefinitions[`up${i + 1}`] = {
-      name: `Up state to GPIO bit ${i + 1}`,
+      name: `Set${String(i + 1).padStart(2, '0')}`,
       options: [],
       callback: async () => {
         // Calculer dans quel octet et quel bit se situe la commande
@@ -123,7 +123,7 @@ module.exports = function () {
      * @property {Function} callback - La fonction de rappel asynchrone exécutée lors de l'appel de l'action
      */
     actionDefinitions[`down${i + 1}`] = {
-      name: `Down state to GPIO bit ${i + 1}`,
+      name: `Raz${String(i + 1).padStart(2, '0')}`,
       options: [],
       callback: async () => {
         // Calculer dans quel octet et quel bit se situe la commande
