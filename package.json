@@ -13,11 +13,12 @@
 		"url": "git+https://github.com/Microfilms/companion-module-microfilms-gpio.git"
 	},
 	"dependencies": {
-		"@companion-module/base": "~1.10.0",
+		"@companion-module/base": "~1.11.0",
 		"nodemon": "^3.1.7"
 	},
 	"devDependencies": {
-		"@companion-module/tools": "^2.0.4",
-		"jsdoc": "^4.0.3"
+		"@companion-module/tools": "^2.1.0",
+		"jsdoc": "^4.0.3",
+		"eslint": "^9.0.0"
 	}
 }
