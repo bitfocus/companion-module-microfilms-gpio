@@ -30,18 +30,18 @@ module.exports = async function () {
     feedbackDefinitions[`gpio_state_bit_${i + 1}`] = {
       type: 'advanced',
       name: `Gpio${String(i + 1).padStart(2, '0')}`,
-      description: `Si le bit ${i + 1} de l'état GPIO est activé, change la couleur de fond en vert, sinon en rouge`,
+      description: `indicates the state of output ${i + 1} (0 deactivated, 1 activated)`,
       options: [
         {
           type: 'colorpicker',
           label: 'Couleur de fond rouge (désactivé)',
-          id: 'colorRed',
+          id: 'colorOff',
           default: this.colors.red
         },
         {
           type: 'colorpicker',
           label: 'Couleur de fond vert (activé)',
-          id: 'colorGreen',
+          id: 'colorOn',
           default: this.colors.green
         }
       ],
@@ -54,9 +54,9 @@ module.exports = async function () {
         const isBitOn = (this.gpioBytes[byteIndex] & (1 << bitIndex)) !== 0
 
         if (isBitOn) {
-          return { bgcolor: event.options.colorGreen } // Si le bit est à 1, couleur verte
+          return { bgcolor: event.options.colorOn } // Si le bit est à 1, couleur verte
         } else {
-          return { bgcolor: event.options.colorRed } // Si le bit est à 0, couleur rouge
+          return { bgcolor: event.options.colorOff } // Si le bit est à 0, couleur rouge
         }
       }
     }

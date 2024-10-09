@@ -1,7 +1,7 @@
 {
 	"id": "microfilms-gpio",
 	"name": "microfilms-gpio",
-	"shortname": "MFGPIO",
+	"shortname": "MFGpio",
 	"description": "Microfilms GPIO",
 	"version": "0.1.0",
 	"license": "MIT",
@@ -22,7 +22,7 @@
 	"legacyIds": [],
 	"manufacturer": "Microfilms",
 	"products": [
-		"GPIO"
+		"Gpio"
 	],
 	"keywords": []
 }

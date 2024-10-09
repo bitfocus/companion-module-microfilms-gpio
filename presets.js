@@ -51,8 +51,8 @@ module.exports = function () {
         {
           feedbackId: `gpio_state_bit_${i + 1}`,
           options: {
-            colorRed: this.colors.red,
-            colorGreen: this.colors.green
+            colorOff: this.colors.black,
+            colorOn: this.colors.green
           }
         }
       ]
@@ -102,8 +102,8 @@ module.exports = function () {
         {
           feedbackId: `gpio_state_bit_${i + 1}`,
           options: {
-            colorRed: this.colors.red,
-            colorGreen: this.colors.green
+            colorOff: this.colors.black,
+            colorOn: this.colors.green
           }
         }
       ]
