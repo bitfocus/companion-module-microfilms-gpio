@@ -30,7 +30,7 @@ class NetworkManager extends EventEmitter {
     this.log = log
     this.setGpioHeader = setGpioHeader
     this.gpioBytes = gpioBytes
-    this.pingInterval = 100000
+    this.pingInterval = 500
     this.receptionWatcherInterval = 3000
     this.waitingForStatusResponse = false
     this.pingMessage = Buffer.concat([
