@@ -60,16 +60,20 @@ class ModuleInstance extends InstanceBase {
       red: combineRgb(200, 0, 0)
     }
 
-    initActions.bind(this)() // export actions
-    initFeedbacks.bind(this)() // export feedbacks
-    initPresets.bind(this)() // export presets
-    initVariables.bind(this)() // export variables
     this.gpioBytes = Buffer.from([0, 0, 0, 0]) // Valeur GPIO à envoyer
     this.config.port = this.config.port || 7770 // Port par défaut
     this.config.host = this.config.host || '192.168.10.10' // Adresse IP par défaut
 
+    this.setGpioHeader = Buffer.from('INP')
+    this.gpioBytes = Buffer.from([0, 0, 0, 0])
+
     // Initialiser le NetworkManager
-    this.networkManager = new NetworkManager(this.config, this.log.bind(this))
+    this.networkManager = new NetworkManager(
+      this.config,
+      this.log.bind(this),
+      this.setGpioHeader,
+      this.gpioBytes
+    )
 
     // Écouter les événements émis par le NetworkManager
     this.networkManager.on('gpioStatus', (gpioBytes) => {
@@ -102,6 +106,11 @@ class ModuleInstance extends InstanceBase {
     this.networkManager.on('sendError', (error) => {
       this.log('error', `Error sending "Set GPIO" command: ${error}`)
     })
+
+    initActions.bind(this)() // export actions
+    initFeedbacks.bind(this)() // export feedbacks
+    initPresets.bind(this)() // export presets
+    initVariables.bind(this)() // export variables
 
     // Module initialisé
     this.log('info', 'Microfilms GPIO started!')

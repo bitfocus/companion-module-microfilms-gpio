@@ -44,34 +44,16 @@ module.exports = function () {
         // Crée le message "Set GPIO" avec l'en-tête, les GPIO et le masque
         const msgUp = Buffer.concat([this.setGpioHeader, gpioBytesUp, maskBytes, reservedBytes])
 
-        // send UP
-        this.udpClient.send(msgUp, this.config.port, this.config.host, (err) => {
-          if (err) {
-            this.log('error', `Error sending UDP message: ${err}`)
-          } else {
-            const gpioBytesDown = Buffer.alloc(4) // Tous les bits à '0' pour DOWN
-            const msgDown = Buffer.concat([this.setGpioHeader, gpioBytesDown, maskBytes, reservedBytes])
-
-            setTimeout(() => {
-              // send DOWN
-              this.udpClient.send(msgDown, this.config.port, this.config.host, (err) => {
-                if (err) {
-                  this.log('error', `Error sending UDP message: ${err}`)
-                } else {
-                  this.log(
-                    'info',
-                    `"Set GPIO bit ${i + 1} DOWN" sent to ${this.config.host}:${this.config.port} (GPIO=${this.byteToBinaryString(gpioBytesDown)})`
-                  )
-                }
-              })
-            }, impulseDelay)
-
-            this.log(
-              'info',
-              `"Set GPIO bit ${i + 1} UP" sent to ${this.config.host}:${this.config.port} (GPIO=${this.byteToBinaryString(gpioBytesUp)})`
-            )
-          }
-        })
+        this.networkManager.sendGpioCommand(msgUp)
+        const gpioBytesDown = Buffer.alloc(4) // Tous les bits à '0' pour DOWN
+        const msgDown = Buffer.concat([this.setGpioHeader, gpioBytesDown, maskBytes, reservedBytes])
+        setTimeout(() => {
+          this.networkManager.sendGpioCommand(msgDown)
+        }, impulseDelay)
+        this.log(
+          'info',
+          `"Set GPIO bit ${i + 1} UP" sent to ${this.config.host}:${this.config.port} (GPIO=${this.byteToBinaryString(gpioBytesUp)})`
+        )
       }
     }
 
@@ -99,18 +81,11 @@ module.exports = function () {
         // Crée le message "Set GPIO" avec l'en-tête, les GPIO et le masque
         const msgUp = Buffer.concat([this.setGpioHeader, gpioBytesUp, maskBytes, reservedBytes])
 
-        // send UP
-        this.udpClient.send(msgUp, this.config.port, this.config.host, (err) => {
-          if (err) {
-            this.log('error', `Error sending UDP message: ${err}`)
-          } else {
-            // relance du ping
-            this.log(
-              'info',
-              `"Set GPIO bit ${i + 1} UP" sent to ${this.config.host}:${this.config.port} (GPIO=${this.byteToBinaryString(gpioBytesUp)})`
-            )
-          }
-        })
+        this.networkManager.sendGpioCommand(msgUp)
+        this.log(
+          'info',
+          `"Set GPIO bit ${i + 1} UP" sent to ${this.config.host}:${this.config.port} (GPIO=${this.byteToBinaryString(gpioBytesUp)})`
+        )
       }
     }
 
@@ -137,17 +112,11 @@ module.exports = function () {
         // Crée le message "Set GPIO" avec l'en-tête, les GPIO et le masque
         const msgDown = Buffer.concat([this.setGpioHeader, gpioBytesDown, maskBytes, reservedBytes])
 
-        // send DOWN
-        this.udpClient.send(msgDown, this.config.port, this.config.host, (err) => {
-          if (err) {
-            this.log('error', `Error sending UDP message: ${err}`)
-          } else {
-            this.log(
-              'info',
-              `"Set GPIO bit ${i + 1} DOWN" sent to ${this.config.host}:${this.config.port} (GPIO=${this.byteToBinaryString(gpioBytesDown)})`
-            )
-          }
-        })
+        this.networkManager.sendGpioCommand(msgDown)
+        this.log(
+          'info',
+          `"Set GPIO bit ${i + 1} DOWN" sent to ${this.config.host}:${this.config.port} (GPIO=${this.byteToBinaryString(gpioBytesDown)})`
+        )
       }
     }
   }

@@ -24,13 +24,13 @@ class NetworkManager extends EventEmitter {
    * @param {Object} config - La configuration réseau.
    * @param {Function} log - La fonction de journalisation.
    */
-  constructor (config, log) {
+  constructor (config, log, setGpioHeader, gpioBytes) {
     super()
     this.config = config
     this.log = log
-    this.setGpioHeader = Buffer.from('INP')
-    this.gpioBytes = Buffer.from([0, 0, 0, 0])
-    this.pingInterval = 500
+    this.setGpioHeader = setGpioHeader
+    this.gpioBytes = gpioBytes
+    this.pingInterval = 100000
     this.receptionWatcherInterval = 3000
     this.waitingForStatusResponse = false
     this.pingMessage = Buffer.concat([
@@ -129,6 +129,17 @@ class NetworkManager extends EventEmitter {
       .reverse()
       .map(byteToBinaryString)
       .join(' ')
+  }
+
+  sendGpioCommand (gpioBytes) {
+    this.udpClient.send(gpioBytes, this.config.port, this.config.host, (err) => {
+      if (err) {
+        this.emit('sendError', err)
+        this.log('error', `Error sending "Set GPIO" command: ${err}`)
+      } else {
+        this.log('info', 'Command "Set GPIO Command" sent successfully.')
+      }
+    })
   }
 
   /**
