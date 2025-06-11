@@ -3,7 +3,8 @@
 	"version": "0.1.0",
 	"main": "main.js",
 	"scripts": {
-		"package": "companion-module-microfilms-gpio",
+		"package": "companion-module-build",
+		"custom-package": "./package.sh",
 		"doc": "rm -rf ./docs && ./node_modules/.bin/jsdoc -c jsdoc.json",
 		"lint": "npx eslint . --fix --config eslint.config.mjs"
 	},

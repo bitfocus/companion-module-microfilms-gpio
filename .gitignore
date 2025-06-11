@@ -136,3 +136,5 @@ src/seed/user.js
 
 # la configuration réseau du serveur pour tester en dev
 50-cloud-init.yaml
+
+pkg

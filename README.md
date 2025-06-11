@@ -88,3 +88,28 @@ npm install
 ```
 Configurez l'IP et le port du robot dans Companion.
 Lancez Companion et sélectionnez le module "Microfilms: GPIO".
+
+## Packaging pour le déploiement
+
+Ce module inclut un script pour créer un package de production qui peut être facilement déployé par un client sans avoir besoin d'installer `npm` ou d'autres dépendances.
+
+Pour créer le package :
+1. Assurez-vous que le script est exécutable (à faire une seule fois) :
+```bash
+chmod +x package.sh
+```
+2. Lancez le script de packaging via npm :
+```bash
+npm run custom-package
+```
+Cette commande générera une archive `microfilms-gpio-vX.X.X.tar.gz` dans le dossier `pkg`. C'est cette archive que vous devez fournir à votre client.
+
+## Déploiement pour le client final
+
+Pour installer ce module sur un ordinateur Windows ou macOS :
+
+1.  **Téléchargez** l'archive du module (`microfilms-gpio-vX.X.X.tar.gz`) fournie par le développeur.
+2.  **Décompressez** l'archive. Sur Windows, vous pouvez faire un clic droit et "Extraire tout...". Sur macOS, un double-clic suffit.
+3.  Un dossier sera créé (par exemple `microfilms-gpio-v0.1.0`). **Renommez ce dossier** pour qu'il s'appelle exactement `microfilms-gpio`.
+4.  **Copiez** ce dossier `microfilms-gpio` dans le répertoire des modules de votre installation Companion. Vous trouverez ce répertoire dans les réglages de l'application Companion.
+5.  **Redémarrez** Companion. Le module "Microfilms: GPIO" devrait maintenant être disponible.
