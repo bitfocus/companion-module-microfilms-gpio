@@ -4,9 +4,11 @@
  *
  * Modules requis :
  * - dgram (module natif de Node.js pour UDP)
+ * - ./protocol (helpers purs du protocole UDP/GPIO)
  */
 
 const dgram = require('dgram')
+const { applyMask, parseInpFrame, buildOutFrame } = require('./protocol')
 
 /**
  * Création d'un socket UDP pour le serveur
@@ -33,14 +35,8 @@ const gpio = Buffer.alloc(4) // 4 octets pour les 32 GPIO (initialisés à 0)
  * @param {Buffer} maskBytes - Le masque à appliquer
  */
 function applyMaskAndUpdateGPIO (gpioBytes, maskBytes) {
-  for (let i = 0; i < 4; i++) {
-    // Met à jour l'état des GPIO en appliquant un masque bit à bit.
-    // Pour chaque bit :
-    // - Si le bit du masque est à 1, la nouvelle valeur (gpioBytes) est appliquée.
-    // - Si le bit du masque est à 0, l'état actuel du GPIO est conservé.
-    // Cela permet de modifier sélectivement certains GPIO sans affecter les autres.
-    gpio[i] = (gpio[i] & ~maskBytes[i]) | (gpioBytes[i] & maskBytes[i])
-  }
+  const next = applyMask(gpio, gpioBytes, maskBytes)
+  next.copy(gpio)
 }
 
 /**
@@ -52,7 +48,7 @@ function applyMaskAndUpdateGPIO (gpioBytes, maskBytes) {
  * @param {Object} rinfo - Informations sur le client (adresse et port)
  */
 function sendStatus (rinfo) {
-  const statusMessage = Buffer.concat([Buffer.from('OUT'), gpio]) // Crée un message avec l'en-tête 'O', 'U', 'T'
+  const statusMessage = buildOutFrame(gpio)
   server.send(statusMessage, rinfo.port, rinfo.address, (err) => {
     if (err) {
       console.error('Erreur lors de l\'envoi du message :', err)
@@ -74,19 +70,13 @@ function sendStatus (rinfo) {
 server.on('message', (msg, rinfo) => {
   console.log(`Message reçu de ${rinfo.address}:${rinfo.port}`)
 
-  // Vérification de l'en-tête 'INP' en utilisant subarray()
-  const header = msg.subarray(0, 3).toString() // Utilisation de subarray pour remplacer slice
-  if (header !== 'INP') {
+  const parsed = parseInpFrame(msg)
+  if (!parsed) {
     console.error('Commande invalide, en-tête incorrect')
     return
   }
 
-  // Récupération des 4 octets pour les GPIO et les 4 octets pour le masque en utilisant subarray()
-  const gpioBytes = msg.subarray(3, 7) // Utilisation de subarray pour remplacer slice
-  const maskBytes = msg.subarray(7, 11) // Utilisation de subarray pour remplacer slice
-
-  // Appliquer le masque et mettre à jour l'état interne des GPIO
-  applyMaskAndUpdateGPIO(gpioBytes, maskBytes)
+  applyMaskAndUpdateGPIO(parsed.gpioBytes, parsed.maskBytes)
 
   // Envoyer une réponse "Status" immédiatement après la commande reçue
   sendStatus(rinfo)

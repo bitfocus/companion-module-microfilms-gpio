@@ -6,7 +6,8 @@
 		"package": "companion-module-build",
 		"custom-package": "./package.sh",
 		"doc": "rm -rf ./docs && ./node_modules/.bin/jsdoc -c jsdoc.json",
-		"lint": "npx eslint . --fix --config eslint.config.mjs"
+		"lint": "npx eslint . --fix --config eslint.config.mjs",
+		"test": "node --test test/*.test.js"
 	},
 	"license": "MIT",
 	"repository": {

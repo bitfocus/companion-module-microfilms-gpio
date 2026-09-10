@@ -5,6 +5,7 @@
  * @module NetworkManager
  * @requires dgram
  * @requires events
+ * @requires ./protocol
  *
  * @description
  * Ce module utilise UDP pour envoyer des commandes GPIO et écouter les réponses du serveur.
@@ -13,6 +14,7 @@
 
 const dgram = require('dgram')
 const EventEmitter = require('events')
+const { buildPingFrame, parseOutFrame, PING_INTERVAL_MS, RECEPTION_TIMEOUT_MS } = require('./protocol')
 
 /**
  * Classe représentant le gestionnaire de réseau pour les commandes GPIO.
@@ -30,15 +32,10 @@ class NetworkManager extends EventEmitter {
     this.log = log
     this.setGpioHeader = setGpioHeader
     this.gpioBytes = gpioBytes
-    this.pingInterval = 500
-    this.receptionWatcherInterval = 3000
+    this.pingInterval = PING_INTERVAL_MS
+    this.receptionWatcherInterval = RECEPTION_TIMEOUT_MS
     this.waitingForStatusResponse = false
-    this.pingMessage = Buffer.concat([
-      this.setGpioHeader,
-      Buffer.from([0, 0, 0, 0]),
-      Buffer.from([0, 0, 0, 0]),
-      Buffer.from([0, 0])
-    ])
+    this.pingMessage = buildPingFrame()
     this.sendGpioPingId = null
     this.receptionWatcherId = null
     this.configureReception()
@@ -61,10 +58,9 @@ class NetworkManager extends EventEmitter {
 
     // Écouter la réponse "Status" du serveur
     this.udpClient.on('message', (msg, rinfo) => {
-      // Vérifier l'en-tête 'OUT'
-      const header = msg.subarray(0, 3).toString()
-      if (header === 'OUT') {
-        this.gpioBytes = msg.subarray(3, 7)
+      const gpioBytes = parseOutFrame(msg)
+      if (gpioBytes) {
+        this.gpioBytes = gpioBytes
         clearTimeout(this.receptionWatcherId)
         this.waitingForStatusResponse = false
         this.emit('gpioStatus', this.gpioBytes)
