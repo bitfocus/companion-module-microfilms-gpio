@@ -1,34 +1,40 @@
 ## Module Microfilms GPIO
 
-Ce module permet de contrôler les GPIO (entrées/sorties) des robots Microfilms via des commandes UDP.
+Contrôle des 32 bits GPIO d’un robot Microfilms (machinerie) depuis Companion et un Stream Deck, via UDP.
 
 ### Configuration
 
-1. **Adresse IP** : Entrez l'adresse IP du robot Microfilms (par défaut : 192.168.10.10)
-2. **Port** : Entrez le port UDP du robot (par défaut : 7770)
+- **Target IP** : adresse du robot. Pour le simulateur local : `127.0.0.1` (défaut robot : `192.168.10.10`).
+- **Target Port** : port UDP, `7770` par défaut.
 
-### Actions disponibles
+La connexion passe à **OK** dès qu’une réponse `Status` arrive. Un ping est envoyé toutes les 500 ms ; sans réponse pendant 3 s, le statut devient **Disconnected**.
 
-#### Impulse GPIO
-Envoie une impulsion courte (50-100ms) sur un GPIO spécifique.
-- **GPIO Bit** : Sélectionnez le bit GPIO à activer (1-32)
-- **Durée** : Durée de l'impulsion en millisecondes
+### Actions (un bit = une action)
 
-#### Two States GPIO
-Active/désactive un GPIO selon l'état du bouton (appuyé/relâché).
-- **GPIO Bit** : Sélectionnez le bit GPIO à contrôler (1-32)
+- **Imp01 … Imp32** : impulsion 100 ms (ON puis OFF) sur le bit.
+- **Set01 … Set32** : met le bit à 1.
+- **Raz01 … Raz32** : met le bit à 0.
+
+Les autres bits ne sont pas modifiés.
+
+### Presets (catégorie Divers)
+
+- **IMP n** : à l’appui, exécute `Imp` (flash).
+- **TS n** (Two States) : appui = `Set`, relâchement = `Raz` (vert tant que la touche est maintenue).
 
 ### Feedbacks
 
-Les feedbacks changent la couleur du bouton selon l'état du GPIO :
-- **Vert** : GPIO activé
-- **Rouge** : GPIO désactivé
+**Gpio01 … Gpio32** : couleur du bouton selon le dernier état renvoyé par le robot / simulateur.
 
-### Variables
+- Presets : noir = off, vert = on.
+- Feedback nu : rouge = off, vert = on (couleurs réglables).
 
-- `$(MFGpio:gpio)` : État complet des 32 GPIO (valeur décimale)
-- `$(MFGpio:state1)` à `$(MFGpio:state32)` : État individuel de chaque GPIO (0 ou 1)
+### Tester sans robot (simulateur)
 
-### Support
+Dans le dossier du module, avec Node 18 :
 
-Pour toute question ou problème, contactez Microfilms ou consultez la documentation complète sur GitHub.
+```bash
+node udp-server.js
+```
+
+Pointer la connexion vers `127.0.0.1:7770`. Des messages doivent défiler dans le terminal (pings). Placer un preset **TS 1**, maintenir la touche : bouton vert ; relâcher : bouton noir. Arrêter le simulateur : la connexion passe à **Disconnected**.
