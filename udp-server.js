@@ -7,8 +7,8 @@
  * - ./protocol (helpers purs du protocole UDP/GPIO)
  */
 
-const dgram = require('dgram')
-const { applyMask, parseInpFrame, buildOutFrame } = require('./protocol')
+import dgram from 'node:dgram'
+import { applyMask, parseInpFrame, buildOutFrame } from './protocol.js'
 
 /**
  * Création d'un socket UDP pour le serveur

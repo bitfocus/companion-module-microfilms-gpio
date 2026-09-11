@@ -36,11 +36,10 @@ export default [
     files: ['**/*.js'], // Ciblez les fichiers JavaScript
     languageOptions: {
       globals: {
-        ...globals.node,
-        ...globals.jest // Ajouter les globales Jest
+        ...globals.node
       },
-      ecmaVersion: 2020,
-      sourceType: 'script' // Utilisation de script pour CommonJS
+      ecmaVersion: 2022,
+      sourceType: 'module' // Modules ESM (package.json "type": "module")
     },
     rules: {
       indent: ['error', 2], // Règle pour 2 espaces en indentation
@@ -73,7 +72,7 @@ export default [
     }
   },
   {
-    ignores: ['out/', 'nodes_module', 'docs'], // Ignorer le dossier 'out'
+    ignores: ['out/', 'node_modules/', 'docs', 'pkg/'], // Ignorer 'out', la doc générée et le bundle 'pkg' (npm run package)
   },
   js.configs.recommended // Utilisez la configuration recommandée de ESLint
 ]

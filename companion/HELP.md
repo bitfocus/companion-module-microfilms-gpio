@@ -1,5 +1,7 @@
 ## Module Microfilms GPIO
 
+⚠️ Ce module (1.0.0) requiert Companion 5.x. Pour Companion 4.x, utiliser une version 0.x du module.
+
 Contrôle des 32 bits GPIO d’un robot Microfilms (machinerie) depuis Companion et un Stream Deck, via UDP.
 
 ### Configuration
@@ -17,7 +19,7 @@ La connexion passe à **OK** dès qu’une réponse `Status` arrive. Un ping est
 
 Les autres bits ne sont pas modifiés.
 
-### Presets (catégorie Divers)
+### Presets (section Divers)
 
 - **IMP n** : à l’appui, exécute `Imp` (flash).
 - **TS n** (Two States) : appui = `Set`, relâchement = `Raz` (vert tant que la touche est maintenue).
@@ -31,7 +33,7 @@ Les autres bits ne sont pas modifiés.
 
 ### Tester sans robot (simulateur)
 
-Dans le dossier du module, avec Node 18 :
+Dans le dossier du module, avec Node 22 :
 
 ```bash
 node udp-server.js

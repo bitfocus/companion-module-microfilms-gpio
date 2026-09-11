@@ -6,10 +6,11 @@
 /**
  * Fonction principale qui génère et définit les préréglages pour les actions GPIO.
  * Cette fonction est exportée et sera probablement appelée lors de l'initialisation du module.
+ * API 2.x : les presets sont de type `simple` et regroupés dans une section « Divers ».
  *
  * @returns {void}
  */
-module.exports = function () {
+export default function () {
   const presetDefinitions = {}
 
   /**
@@ -20,16 +21,14 @@ module.exports = function () {
      * Définition d'un préréglage pour une action "impulse" sur un bit GPIO spécifique
      *
      * @type {Object}
-     * @property {string} type - Le type de préréglage (bouton dans ce cas)
-     * @property {string} category - La catégorie du préréglage
+     * @property {string} type - Le type de préréglage (simple dans ce cas)
      * @property {string} name - Le nom du préréglage
      * @property {Object} style - Le style visuel du bouton
      * @property {Array} steps - Les étapes d'action du bouton (appui et relâchement)
      * @property {Array} feedbacks - Les retours visuels basés sur l'état du GPIO
      */
     presetDefinitions[`impulse${i + 1}`] = {
-      type: 'button',
-      category: 'Divers',
+      type: 'simple',
       name: `Impulse ${i + 1} button`,
       style: {
         text: `IMP ${i + 1}`,
@@ -41,7 +40,8 @@ module.exports = function () {
         {
           down: [
             {
-              actionId: `impulse${i + 1}`
+              actionId: `impulse${i + 1}`,
+              options: {}
             }
           ],
           up: []
@@ -67,16 +67,14 @@ module.exports = function () {
      * Définition d'un préréglage pour une action "Two states" sur un bit GPIO spécifique
      *
      * @type {Object}
-     * @property {string} type - Le type de préréglage (bouton dans ce cas)
-     * @property {string} category - La catégorie du préréglage
+     * @property {string} type - Le type de préréglage (simple dans ce cas)
      * @property {string} name - Le nom du préréglage
      * @property {Object} style - Le style visuel du bouton
      * @property {Array} steps - Les étapes d'action du bouton (appui et relâchement)
      * @property {Array} feedbacks - Les retours visuels basés sur l'état du GPIO
      */
     presetDefinitions[`towStates${i + 1}`] = {
-      type: 'button',
-      category: 'Divers',
+      type: 'simple',
       name: `Tow states ${i + 1} button`,
       style: {
         text: `TS ${i + 1}`,
@@ -88,12 +86,14 @@ module.exports = function () {
         {
           down: [
             {
-              actionId: `up${i + 1}`
+              actionId: `up${i + 1}`,
+              options: {}
             }
           ],
           up: [
             {
-              actionId: `down${i + 1}`
+              actionId: `down${i + 1}`,
+              options: {}
             }
           ]
         }
@@ -111,7 +111,18 @@ module.exports = function () {
   }
 
   /**
+   * Structure des presets : une seule section « Divers » listant tous les identifiants
+   */
+  const presetStructure = [
+    {
+      id: 'divers',
+      name: 'Divers',
+      definitions: Object.keys(presetDefinitions)
+    }
+  ]
+
+  /**
    * Définit tous les préréglages générés pour être utilisés par le système
    */
-  this.setPresetDefinitions(presetDefinitions)
+  this.setPresetDefinitions(presetStructure, presetDefinitions)
 }

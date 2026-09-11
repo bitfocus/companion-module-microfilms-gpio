@@ -1,10 +1,12 @@
 {
+	"$schema": "../node_modules/@companion-module/base/assets/manifest.schema.json",
 	"id": "microfilms-gpio",
 	"name": "microfilms-gpio",
 	"shortname": "MFGpio",
 	"description": "Microfilms GPIO",
-	"version": "0.1.0",
+	"version": "1.0.0",
 	"license": "MIT",
+	"type": "connection",
 	"repository": "git+https://github.com/Microfilms/companion-module-microfilms-gpio.git",
 	"bugs": "https://github.com/Microfilms/companion-module-microfilms-gpio.git",
 	"maintainers": [
@@ -14,9 +16,9 @@
 		}
 	],
 	"runtime": {
-		"type": "node18",
+		"type": "node22",
 		"api": "nodejs-ipc",
-		"apiVersion": "0.1.0",
+		"apiVersion": "2.1.3",
 		"entrypoint": "../main.js"
 	},
 	"legacyIds": [],

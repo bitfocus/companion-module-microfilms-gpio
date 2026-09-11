@@ -16,20 +16,14 @@
  * en écoutant les événements et en mettant à jour les variables et les feedbacks en conséquence.
  */
 
-const {
-  InstanceBase,
-  Regex,
-  runEntrypoint,
-  InstanceStatus,
-  combineRgb
-} = require('@companion-module/base')
+import { InstanceBase, Regex, InstanceStatus, combineRgb } from '@companion-module/base'
 
-const UpgradeScripts = require('./upgrades')
-const initActions = require('./actions')
-const initFeedbacks = require('./feedbacks')
-const initPresets = require('./presets')
-const initVariables = require('./variables')
-const NetworkManager = require('./network')
+import { UpgradeScripts } from './upgrades.js'
+import initActions from './actions.js'
+import initFeedbacks from './feedbacks.js'
+import initPresets from './presets.js'
+import initVariables from './variables.js'
+import NetworkManager from './network.js'
 
 /**
  * Classe représentant une instance de module.
@@ -46,10 +40,12 @@ class ModuleInstance extends InstanceBase {
 
   /**
    * Initialise le module avec la configuration donnée.
+   * Signature API 2.x : Companion passe aussi isFirstInit (premier démarrage de l'instance)
+   * et secrets (secrets de l'instance), non utilisés ici.
    * @param {Object} config - La configuration du module.
    * @returns {Promise<void>}
    */
-  async init (config) {
+  async init (config, isFirstInit, secrets) { // eslint-disable-line no-unused-vars
     this.updateStatus(InstanceStatus.Connecting)
     this.config = config
     // Couleurs prédéfinies pour les feedbacks
@@ -166,4 +162,6 @@ class ModuleInstance extends InstanceBase {
   }
 }
 
-runEntrypoint(ModuleInstance, UpgradeScripts)
+// Entrypoint API 2.x : Companion importe ce fichier et lit `default` et `UpgradeScripts`.
+export default ModuleInstance
+export { UpgradeScripts }

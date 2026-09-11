@@ -2,10 +2,10 @@
  * Exécute les callbacks Impulse / UP / DOWN via un sendGpioCommand factice.
  */
 
-const nodeTest = require('node:test')
-const assert = require('node:assert/strict')
-const initActions = require('../actions')
-const { IMPULSE_DELAY_MS, INP_HEADER } = require('../protocol')
+import nodeTest from 'node:test'
+import assert from 'node:assert/strict'
+import initActions from '../actions.js'
+import { IMPULSE_DELAY_MS, INP_HEADER } from '../protocol.js'
 
 /**
  * Lie actions.js à un contexte Companion minimal.

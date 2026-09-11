@@ -10,7 +10,7 @@
  *
  * @returns {Promise<void>}
  */
-module.exports = async function () {
+export default async function () {
   const feedbackDefinitions = {}
 
   /**
@@ -24,6 +24,7 @@ module.exports = async function () {
      * @property {string} type - Le type de feedback (avancé dans ce cas)
      * @property {string} name - Le nom descriptif du feedback
      * @property {string} description - La description du comportement du feedback
+     * @property {Array<string>} affectedProperties - Les propriétés de style modifiées (API 2.x)
      * @property {Array} options - Les options configurables du feedback
      * @property {Function} callback - La fonction de rappel qui détermine l'état du feedback
      */
@@ -31,6 +32,7 @@ module.exports = async function () {
       type: 'advanced',
       name: `Gpio${String(i + 1).padStart(2, '0')}`,
       description: `indicates the state of output ${i + 1} (0 deactivated, 1 activated)`,
+      affectedProperties: ['bgcolor'],
       options: [
         {
           type: 'colorpicker',

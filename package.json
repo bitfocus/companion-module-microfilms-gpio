@@ -1,13 +1,16 @@
 {
 	"name": "microfilms-gpio",
-	"version": "0.1.0",
+	"version": "1.0.0",
+	"type": "module",
 	"main": "main.js",
 	"scripts": {
 		"package": "companion-module-build",
-		"custom-package": "./package.sh",
 		"doc": "rm -rf ./docs && ./node_modules/.bin/jsdoc -c jsdoc.json",
 		"lint": "npx eslint . --fix --config eslint.config.mjs",
 		"test": "node --test test/*.test.js"
+	},
+	"engines": {
+		"node": "^22.20"
 	},
 	"license": "MIT",
 	"repository": {
@@ -15,11 +18,11 @@
 		"url": "git+https://github.com/Microfilms/companion-module-microfilms-gpio.git"
 	},
 	"dependencies": {
-		"@companion-module/base": "~1.11.0",
+		"@companion-module/base": "~2.1.3",
 		"nodemon": "^3.1.7"
 	},
 	"devDependencies": {
-		"@companion-module/tools": "^2.1.0",
+		"@companion-module/tools": "^3.1.0",
 		"jsdoc": "^4.0.3",
 		"eslint": "^9.0.0"
 	}

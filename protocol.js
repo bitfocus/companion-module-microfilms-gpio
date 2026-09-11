@@ -164,7 +164,7 @@ function buildOutFrame (gpioBytes) {
   return Buffer.concat([Buffer.from(OUT_HEADER), gpioBytes])
 }
 
-module.exports = {
+export {
   INP_HEADER,
   OUT_HEADER,
   IMPULSE_DELAY_MS,

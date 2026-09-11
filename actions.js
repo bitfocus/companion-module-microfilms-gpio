@@ -8,7 +8,7 @@
  * - ./protocol (helpers purs du protocole UDP/GPIO)
  */
 
-const { buildImpulseFrames, buildInpFrame, encodeBit, IMPULSE_DELAY_MS } = require('./protocol')
+import { buildImpulseFrames, buildInpFrame, encodeBit, IMPULSE_DELAY_MS } from './protocol.js'
 
 /**
  * Fonction principale qui définit et configure les actions pour le contrôle des GPIO.
@@ -16,7 +16,7 @@ const { buildImpulseFrames, buildInpFrame, encodeBit, IMPULSE_DELAY_MS } = requi
  *
  * @returns {void}
  */
-module.exports = function () {
+export default function () {
   const actionDefinitions = {}
 
   for (let i = 0; i < 32; i++) {

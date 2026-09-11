@@ -15,7 +15,8 @@ Le module gère 32 bits GPIO (répartis sur 4 octets) et envoie des commandes au
 
 ## Prérequis
 
-- Companion installé et configuré.
+- Companion **5.x** installé et configuré (le module utilise `@companion-module/base` 2.x et ne se charge plus sur Companion 4).
+- Node **22** pour le développement, les tests et le packaging (`.node-version` = `22`, par exemple via `fnm use --install-if-missing`).
 - Adresse IP et port du robot Microfilms (configurable dans l'interface du module Companion).
 - Simulateur UDP du robot (inclus dans le projet pour tester les fonctionnalités).
 
@@ -64,8 +65,9 @@ INP 00000000 00000000 00000000 00000001
 Un simulateur de robot est inclus pour tester le module Companion sans avoir accès à un robot physique. Le simulateur écoute sur un port UDP et réagit aux commandes Set GPIO en renvoyant une réponse Status avec les GPIO mis à jour.
 
 ### Utilisation du simulateur
-1. Lancez le simulateur de robot UDP :
+1. Lancez le simulateur de robot UDP (Node 22) :
 ``` bash
+fnm use --install-if-missing
 node udp-server.js
 ```
 2. Configurez l'IP et le port du simulateur dans le module Companion.
@@ -77,64 +79,48 @@ node udp-server.js
 - **network.js** : Gère la connexion et la communication avec le robot via UDP.
 - **actions.js** : Définit les actions impulse et tow states pour les 32 bits GPIO.
 - **feedbacks.js** : Gère les feedbacks en fonction de l'état des bits GPIO.
-- **presets.js** : Crée les presets de boutons pour contrôler les GPIO.
+- **presets.js** : Crée les presets de boutons pour contrôler les GPIO (section « Divers »).
+- **protocol.js** : Helpers purs du protocole UDP/GPIO (trames `INP` / `OUT`, masque, bits 1–32).
 - **udp-server.js** : Simulateur de robot qui reçoit les commandes Set GPIO et renvoie des statuts.
+- **test/** : Tests `node --test` du protocole, des actions et du NetworkManager (port éphémère).
 
-## Installation
-Clonez le dépôt dans votre dossier de modules Companion.
-Installer les dépendances :
+## Installation (développement)
+
+Clonez le dépôt dans un sous-dossier du chemin de modules développeur de Companion (option `--extra-module-path` ou réglage *Developer modules path*).
+Installer les dépendances avec Node 22 :
 ``` bash
+fnm use --install-if-missing
 npm install
 ```
 Configurez l'IP et le port du robot dans Companion.
-Lancez Companion et sélectionnez le module "Microfilms: GPIO".
+Lancez Companion 5 et ajoutez la connexion "Microfilms: Gpio" (version **Dev**).
+
+## Tests
+
+``` bash
+npm test
+```
+
+Les tests figent le protocole UDP (trames de 13 / 7 octets, masque, Impulse 100 ms, ping 500 ms, timeout 3 s) et n'ouvrent jamais le port 7770.
 
 ## Packaging pour le déploiement
 
-Ce module peut être packagé de deux façons selon la version de Companion utilisée par votre client.
-
-### Pour Companion v4 (recommandé)
-
-Companion v4 permet d'importer directement des modules via l'interface web, ce qui simplifie grandement l'installation.
-
-#### Créer le package pour Companion v4
+### Créer le bundle pour Companion 5
 ```bash
 npm run package
 ```
-Cette commande génère un fichier `pkg.tgz` à la racine du projet. C'est ce fichier que vous devez fournir à votre client.
+Cette commande (`companion-module-build`) génère le dossier `pkg/microfilms-gpio/` et l'archive `microfilms-gpio-<version>.tgz` à la racine du projet. C'est ce fichier que vous devez fournir à votre client.
 
-#### Installation par le client (Companion v4)
+### Installation par le client (Companion 5)
 1. Ouvrir l'interface web de Companion
-2. Aller dans "Manage Modules"
-3. Cliquer sur "Import offline module bundle" (bouton bleu)
-4. Sélectionner le fichier `pkg.tgz` fourni
+2. Aller dans **Modules**
+3. Cliquer sur **Import offline module bundle**
+4. Sélectionner le fichier `microfilms-gpio-<version>.tgz` fourni
 5. Le module sera installé automatiquement
 6. Aucun redémarrage nécessaire
 
 ✅ **Avantages** : Installation simple via l'interface web, pas besoin d'accéder aux fichiers système.
 
-⚠️ **Note sur la version** : Pendant le développement, le module affichera "Dev version" dans Companion. Une fois installé via le bundle offline, la version correcte (0.1.0) sera affichée.
+⚠️ **Note sur la version** : Pendant le développement, le module affichera "Dev" dans Companion. Une fois installé via le bundle offline, la version du `package.json` sera affichée.
 
-### Pour Companion v3
-
-Si votre client utilise encore Companion v3, utilisez l'ancienne méthode :
-
-#### Créer le package pour Companion v3
-1. Assurez-vous que le script est exécutable (à faire une seule fois) :
-```bash
-chmod +x package.sh
-```
-2. Lancez le script de packaging :
-```bash
-npm run custom-package
-```
-Cette commande génère une archive `microfilms-gpio-vX.X.X.tar.gz` dans le dossier `pkg`.
-
-#### Installation manuelle (Companion v3)
-1. **Télécharger** l'archive du module (`microfilms-gpio-vX.X.X.tar.gz`)
-2. **Décompresser** l'archive
-3. **Renommer** le dossier extrait en `microfilms-gpio`
-4. **Copier** ce dossier dans le répertoire des modules de Companion
-5. **Redémarrer** Companion
-
-⚠️ **Note** : Cette méthode nécessite l'accès aux fichiers système et est plus complexe.
+⚠️ **Compatibilité** : depuis la version 1.0.0, le module cible l'API `@companion-module/base` 2.x (runtime `node22`) et ne se charge plus sur Companion 4.x ni 3.x.

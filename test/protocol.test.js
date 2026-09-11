@@ -2,9 +2,9 @@
  * Tests unitaires du protocole UDP/GPIO (matrice I/O).
  */
 
-const nodeTest = require('node:test')
-const assert = require('node:assert/strict')
-const {
+import nodeTest from 'node:test'
+import assert from 'node:assert/strict'
+import {
   INP_HEADER,
   OUT_HEADER,
   IMPULSE_DELAY_MS,
@@ -19,7 +19,7 @@ const {
   encodeBit,
   bitByteIndex,
   bitBitMask
-} = require('../protocol')
+} from '../protocol.js'
 
 nodeTest.describe('indexation bit 1–32', () => {
   nodeTest('place le bit 1 dans l’octet 0, valeur 0x01', () => {

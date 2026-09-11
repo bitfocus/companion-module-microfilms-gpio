@@ -12,9 +12,9 @@
  * Il émet des événements en fonction des réponses reçues et des erreurs de connexion.
  */
 
-const dgram = require('dgram')
-const EventEmitter = require('events')
-const { buildPingFrame, parseOutFrame, PING_INTERVAL_MS, RECEPTION_TIMEOUT_MS } = require('./protocol')
+import dgram from 'node:dgram'
+import EventEmitter from 'node:events'
+import { buildPingFrame, parseOutFrame, PING_INTERVAL_MS, RECEPTION_TIMEOUT_MS } from './protocol.js'
 
 /**
  * Classe représentant le gestionnaire de réseau pour les commandes GPIO.
@@ -152,4 +152,4 @@ class NetworkManager extends EventEmitter {
   }
 }
 
-module.exports = NetworkManager
+export default NetworkManager

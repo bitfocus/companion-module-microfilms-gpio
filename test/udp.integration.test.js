@@ -3,11 +3,11 @@
  * N'importe jamais udp-server.js (bind 7770 à l'import).
  */
 
-const nodeTest = require('node:test')
-const assert = require('node:assert/strict')
-const dgram = require('dgram')
-const NetworkManager = require('../network')
-const {
+import nodeTest from 'node:test'
+import assert from 'node:assert/strict'
+import dgram from 'node:dgram'
+import NetworkManager from '../network.js'
+import {
   applyMask,
   parseInpFrame,
   buildOutFrame,
@@ -15,7 +15,7 @@ const {
   encodeBit,
   PING_INTERVAL_MS,
   RECEPTION_TIMEOUT_MS
-} = require('../protocol')
+} from '../protocol.js'
 
 /**
  * Attend un événement unique ou échoue après timeoutMs.
