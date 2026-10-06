@@ -1,6 +1,6 @@
 ## Module Microfilms GPIO
 
-⚠️ Ce module (1.0.0) requiert Companion 5.x. Pour Companion 4.x, utiliser une version 0.x du module.
+⚠️ Ce module (1.0.1) requiert Companion 5.x. Pour Companion 4.x, utiliser une version 0.x du module.
 
 Contrôle des 32 bits GPIO d’un robot Microfilms (machinerie) depuis Companion et un Stream Deck, via UDP.
 

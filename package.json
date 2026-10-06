@@ -1,6 +1,6 @@
 {
 	"name": "microfilms-gpio",
-	"version": "1.0.0",
+	"version": "1.0.1",
 	"type": "module",
 	"main": "main.js",
 	"scripts": {
@@ -15,7 +15,7 @@
 	"license": "MIT",
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/Microfilms/companion-module-microfilms-gpio.git"
+		"url": "git+https://github.com/bitfocus/companion-module-microfilms-gpio.git"
 	},
 	"dependencies": {
 		"@companion-module/base": "~2.1.3",

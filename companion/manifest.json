@@ -4,11 +4,11 @@
 	"name": "microfilms-gpio",
 	"shortname": "MFGpio",
 	"description": "Microfilms GPIO",
-	"version": "1.0.0",
+	"version": "1.0.1",
 	"license": "MIT",
 	"type": "connection",
-	"repository": "git+https://github.com/Microfilms/companion-module-microfilms-gpio.git",
-	"bugs": "https://github.com/Microfilms/companion-module-microfilms-gpio.git",
+	"repository": "git+https://github.com/bitfocus/companion-module-microfilms-gpio.git",
+	"bugs": "https://github.com/bitfocus/companion-module-microfilms-gpio/issues",
 	"maintainers": [
 		{
 			"name": "Jérémy DIERX",
