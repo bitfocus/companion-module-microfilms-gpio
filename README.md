@@ -2,21 +2,23 @@
 
 ## Description
 
-Ce module Companion permet de contrôler les robots Microfilms (machineries) via des commandes UDP pour activer ou désactiver les bits GPIO du robot. Les GPIO peuvent être activés ou désactivés en fonction des actions de l'utilisateur dans Companion (comme les actions "impulse" ou "tow states"), et le robot renvoie des informations sur l'état actuel des GPIO via des réponses "Status".
+Ce module Companion permet de contrôler les robots Microfilms (machineries) via des commandes UDP pour activer ou désactiver les bits GPIO du robot. Les GPIO peuvent être activés ou désactivés en fonction des actions de l'utilisateur dans Companion (comme les presets « Impulse » ou « Two states »), et le robot renvoie des informations sur l'état actuel des GPIO via des réponses "Status".
 
 Le module gère 32 bits GPIO (répartis sur 4 octets) et envoie des commandes au robot pour définir l'état des GPIO et recevoir les retours de statut.
 
 ## Fonctionnalités
 
-- **Impulse** : Envoie une impulsion rapide pour activer un GPIO, puis le désactive après un court délai (50-100ms).
-- **Tow States** : Active un GPIO lorsque l'utilisateur appuie sur un bouton et le désactive lorsque l'utilisateur relâche le bouton.
+- **Impulse** (`GPIO nn pulse (100 ms)`) : active un GPIO, puis le désactive après 100 ms.
+- **Two states** (`GPIO nn set on` / `GPIO nn set off`) : active un GPIO lorsque l'utilisateur appuie sur un bouton et le désactive lorsque l'utilisateur relâche le bouton.
 - **Feedbacks** : Le module surveille les états des GPIO et modifie dynamiquement l'apparence des boutons dans Companion en fonction de ces états (couleur verte lorsque le GPIO est activé, rouge sinon).
+- **Variables** : `01` … `32` (état 0/1 de chaque GPIO) et `Full` (les 32 bits en entier non signé, Little Endian), mises à jour à chaque changement d'état.
 - **Communication UDP** : Les échanges entre Companion et le robot se font via UDP. Le module envoie des messages "Set GPIO" et le robot répond avec des messages "Status".
 
 ## Prérequis
 
 - Companion **5.x** installé et configuré (le module utilise `@companion-module/base` 2.x et ne se charge plus sur Companion 4).
-- Node **22** pour le développement, les tests et le packaging (`.node-version` = `22`, par exemple via `fnm use --install-if-missing`).
+- Node **26** pour le développement, les tests et le packaging (`.node-version` = `26`, par exemple via `fnm use --install-if-missing`).
+- Yarn **4** via corepack (`packageManager` du `package.json`). Si corepack manque dans le Node 26 installé : `npm i -g corepack`, puis `corepack enable`.
 - Adresse IP et port du robot Microfilms (configurable dans l'interface du module Companion).
 - Simulateur UDP du robot (inclus dans le projet pour tester les fonctionnalités).
 
@@ -58,7 +60,7 @@ INP 00000000 00000000 00000000 00000001 00000000 00000000 00000000 00000001
 #### Réponse `Status`
 
 ```bash
-INP 00000000 00000000 00000000 00000001
+OUT 00000000 00000000 00000000 00000001
 ```
 
 - En-tête : `OUT`
@@ -67,8 +69,8 @@ INP 00000000 00000000 00000000 00000001
 ## Fonctionnement du module
 
 1. **Configuration UDP** : Le module initialise une connexion UDP avec le robot (ou le simulateur) lors de l'initialisation.
-2. **Actions** : Lorsqu'un utilisateur active une action (par exemple, impulse ou tow states), le module envoie une commande UDP "Set GPIO" pour changer l'état du GPIO correspondant.
-3. **Réception des Statuts** : Le robot envoie un message "Status" en réponse, et le module met à jour les feedbacks en fonction de l'état actuel des GPIO.
+2. **Actions** : Lorsqu'un utilisateur active une action (par exemple, impulse ou two states), le module envoie une commande UDP "Set GPIO" pour changer l'état du GPIO correspondant.
+3. **Réception des Statuts** : Le robot envoie un message "Status" en réponse, et le module met à jour les feedbacks et les variables lorsque l'état des GPIO change.
 
 ## Simulateur UDP du Robot
 
@@ -76,11 +78,11 @@ Un simulateur de robot est inclus pour tester le module Companion sans avoir acc
 
 ### Utilisation du simulateur
 
-1. Lancez le simulateur de robot UDP (Node 22) :
+1. Lancez le simulateur de robot UDP (Node 26) :
 
 ```bash
 fnm use --install-if-missing
-node udp-server.js
+node tools/udp-server.js
 ```
 
 2. Configurez l'IP et le port du simulateur dans le module Companion.
@@ -88,23 +90,26 @@ node udp-server.js
 
 ## Structure des fichiers
 
-- **main.js** : Point d'entrée principal du module Companion, gère la configuration et les communications UDP.
-- **network.js** : Gère la connexion et la communication avec le robot via UDP.
-- **actions.js** : Définit les actions impulse et tow states pour les 32 bits GPIO.
-- **feedbacks.js** : Gère les feedbacks en fonction de l'état des bits GPIO.
-- **presets.js** : Crée les presets de boutons pour contrôler les GPIO (section « Divers »).
-- **protocol.js** : Helpers purs du protocole UDP/GPIO (trames `INP` / `OUT`, masque, bits 1–32).
-- **udp-server.js** : Simulateur de robot qui reçoit les commandes Set GPIO et renvoie des statuts.
-- **test/** : Tests `node --test` du protocole, des actions et du NetworkManager (port éphémère).
+- **src/main.js** : Point d'entrée du module Companion (manifest `../src/main.js`), gère la configuration, le NetworkManager, les variables et les feedbacks.
+- **src/network.js** : Gère la connexion et la communication avec le robot via UDP.
+- **src/actions.js** : Définit les actions pulse / set on / set off pour les 32 bits GPIO.
+- **src/feedbacks.js** : Gère les feedbacks en fonction de l'état des bits GPIO.
+- **src/presets.js** : Crée les presets de boutons pour contrôler les GPIO (section « GPIO »).
+- **src/variables.js** : Déclare les variables `01` … `32` et `Full`.
+- **src/protocol.js** : Helpers purs du protocole UDP/GPIO (trames `INP` / `OUT`, masque, bits 1–32).
+- **src/upgrades.js** : Scripts de migration de configuration (aucun).
+- **tools/udp-server.js** : Simulateur de robot qui reçoit les commandes Set GPIO et renvoie des statuts (hors bundle).
+- **test/** : Tests `node --test` du protocole, des actions, du module et du NetworkManager (ports éphémères).
 
 ## Installation (développement)
 
 Clonez le dépôt dans un sous-dossier du chemin de modules développeur de Companion (option `--extra-module-path` ou réglage _Developer modules path_).
-Installer les dépendances avec Node 22 :
+Installer les dépendances avec Node 26 et Yarn 4 :
 
 ```bash
 fnm use --install-if-missing
-npm install
+corepack enable
+yarn install
 ```
 
 Configurez l'IP et le port du robot dans Companion.
@@ -113,17 +118,19 @@ Lancez Companion 5 et ajoutez la connexion "Microfilms: Gpio" (version **Dev**).
 ## Tests
 
 ```bash
-npm test
+yarn test
+yarn lint
+yarn format
 ```
 
-Les tests figent le protocole UDP (trames de 13 / 7 octets, masque, Impulse 100 ms, ping 500 ms, timeout 3 s) et n'ouvrent jamais le port 7770.
+Les tests figent le protocole UDP (trames de 13 / 7 octets, masque, Impulse 100 ms, ping 500 ms, timeout 3 s) et n'ouvrent jamais le port 7770. `yarn format` applique Prettier (configuration de `@companion-module/tools`) ; ESLint ne garde que les règles de qualité.
 
 ## Packaging pour le déploiement
 
 ### Créer le bundle pour Companion 5
 
 ```bash
-npm run package
+yarn package
 ```
 
 Cette commande (`companion-module-build`) génère le dossier `pkg/microfilms-gpio/` et l'archive `microfilms-gpio-<version>.tgz` à la racine du projet. C'est ce fichier que vous devez fournir à votre client.
@@ -141,4 +148,4 @@ Cette commande (`companion-module-build`) génère le dossier `pkg/microfilms-gp
 
 ⚠️ **Note sur la version** : Pendant le développement, le module affichera "Dev" dans Companion. Une fois installé via le bundle offline, la version du `package.json` sera affichée.
 
-⚠️ **Compatibilité** : depuis la version 1.0.0, le module cible l'API `@companion-module/base` 2.x (runtime `node22`) et ne se charge plus sur Companion 4.x ni 3.x.
+⚠️ **Compatibilité** : depuis la version 1.0.0, le module cible l'API `@companion-module/base` 2.x et ne se charge plus sur Companion 4.x ni 3.x. Depuis la version 1.1.0, il tourne sur le runtime `node26`.

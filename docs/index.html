@@ -45,18 +45,21 @@
     <section>
         <article><h1>Companion Module - Microfilms GPIO</h1>
 <h2>Description</h2>
-<p>Ce module Companion permet de contrôler les robots Microfilms (machineries) via des commandes UDP pour activer ou désactiver les bits GPIO du robot. Les GPIO peuvent être activés ou désactivés en fonction des actions de l'utilisateur dans Companion (comme les actions &quot;impulse&quot; ou &quot;tow states&quot;), et le robot renvoie des informations sur l'état actuel des GPIO via des réponses &quot;Status&quot;.</p>
+<p>Ce module Companion permet de contrôler les robots Microfilms (machineries) via des commandes UDP pour activer ou désactiver les bits GPIO du robot. Les GPIO peuvent être activés ou désactivés en fonction des actions de l'utilisateur dans Companion (comme les presets « Impulse » ou « Two states »), et le robot renvoie des informations sur l'état actuel des GPIO via des réponses &quot;Status&quot;.</p>
 <p>Le module gère 32 bits GPIO (répartis sur 4 octets) et envoie des commandes au robot pour définir l'état des GPIO et recevoir les retours de statut.</p>
 <h2>Fonctionnalités</h2>
 <ul>
-<li><strong>Impulse</strong> : Envoie une impulsion rapide pour activer un GPIO, puis le désactive après un court délai (50-100ms).</li>
-<li><strong>Tow States</strong> : Active un GPIO lorsque l'utilisateur appuie sur un bouton et le désactive lorsque l'utilisateur relâche le bouton.</li>
+<li><strong>Impulse</strong> (<code>GPIO nn pulse (100 ms)</code>) : active un GPIO, puis le désactive après 100 ms.</li>
+<li><strong>Two states</strong> (<code>GPIO nn set on</code> / <code>GPIO nn set off</code>) : active un GPIO lorsque l'utilisateur appuie sur un bouton et le désactive lorsque l'utilisateur relâche le bouton.</li>
 <li><strong>Feedbacks</strong> : Le module surveille les états des GPIO et modifie dynamiquement l'apparence des boutons dans Companion en fonction de ces états (couleur verte lorsque le GPIO est activé, rouge sinon).</li>
+<li><strong>Variables</strong> : <code>01</code> … <code>32</code> (état 0/1 de chaque GPIO) et <code>Full</code> (les 32 bits en entier non signé, Little Endian), mises à jour à chaque changement d'état.</li>
 <li><strong>Communication UDP</strong> : Les échanges entre Companion et le robot se font via UDP. Le module envoie des messages &quot;Set GPIO&quot; et le robot répond avec des messages &quot;Status&quot;.</li>
 </ul>
 <h2>Prérequis</h2>
 <ul>
-<li>Companion installé et configuré.</li>
+<li>Companion <strong>5.x</strong> installé et configuré (le module utilise <code>@companion-module/base</code> 2.x et ne se charge plus sur Companion 4).</li>
+<li>Node <strong>26</strong> pour le développement, les tests et le packaging (<code>.node-version</code> = <code>26</code>, par exemple via <code>fnm use --install-if-missing</code>).</li>
+<li>Yarn <strong>4</strong> via corepack (<code>packageManager</code> du <code>package.json</code>). Si corepack manque dans le Node 26 installé : <code>npm i -g corepack</code>, puis <code>corepack enable</code>.</li>
 <li>Adresse IP et port du robot Microfilms (configurable dans l'interface du module Companion).</li>
 <li>Simulateur UDP du robot (inclus dans le projet pour tester les fonctionnalités).</li>
 </ul>
@@ -90,7 +93,7 @@
 <li>Mask Bytes : <code>[00000000 00000000 00000000 00000001]</code> (le premier octet est pris en compte, les autres sont ignorés)</li>
 </ul>
 <h4>Réponse <code>Status</code></h4>
-<pre class="prettyprint source lang-bash"><code>INP 00000000 00000000 00000000 00000001
+<pre class="prettyprint source lang-bash"><code>OUT 00000000 00000000 00000000 00000001
 </code></pre>
 <ul>
 <li>En-tête : <code>OUT</code></li>
@@ -99,16 +102,17 @@
 <h2>Fonctionnement du module</h2>
 <ol>
 <li><strong>Configuration UDP</strong> : Le module initialise une connexion UDP avec le robot (ou le simulateur) lors de l'initialisation.</li>
-<li><strong>Actions</strong> : Lorsqu'un utilisateur active une action (par exemple, impulse ou tow states), le module envoie une commande UDP &quot;Set GPIO&quot; pour changer l'état du GPIO correspondant.</li>
-<li><strong>Réception des Statuts</strong> : Le robot envoie un message &quot;Status&quot; en réponse, et le module met à jour les feedbacks en fonction de l'état actuel des GPIO.</li>
+<li><strong>Actions</strong> : Lorsqu'un utilisateur active une action (par exemple, impulse ou two states), le module envoie une commande UDP &quot;Set GPIO&quot; pour changer l'état du GPIO correspondant.</li>
+<li><strong>Réception des Statuts</strong> : Le robot envoie un message &quot;Status&quot; en réponse, et le module met à jour les feedbacks et les variables lorsque l'état des GPIO change.</li>
 </ol>
 <h2>Simulateur UDP du Robot</h2>
 <p>Un simulateur de robot est inclus pour tester le module Companion sans avoir accès à un robot physique. Le simulateur écoute sur un port UDP et réagit aux commandes Set GPIO en renvoyant une réponse Status avec les GPIO mis à jour.</p>
 <h3>Utilisation du simulateur</h3>
 <ol>
-<li>Lancez le simulateur de robot UDP :</li>
+<li>Lancez le simulateur de robot UDP (Node 26) :</li>
 </ol>
-<pre class="prettyprint source lang-bash"><code>node udp-server.js
+<pre class="prettyprint source lang-bash"><code>fnm use --install-if-missing
+node tools/udp-server.js
 </code></pre>
 <ol start="2">
 <li>Configurez l'IP et le port du simulateur dans le module Companion.</li>
@@ -116,20 +120,49 @@
 </ol>
 <h2>Structure des fichiers</h2>
 <ul>
-<li><strong>main.js</strong> : Point d'entrée principal du module Companion, gère la configuration et les communications UDP.</li>
-<li><strong>network.js</strong> : Gère la connexion et la communication avec le robot via UDP.</li>
-<li><strong>actions.js</strong> : Définit les actions impulse et tow states pour les 32 bits GPIO.</li>
-<li><strong>feedbacks.js</strong> : Gère les feedbacks en fonction de l'état des bits GPIO.</li>
-<li><strong>presets.js</strong> : Crée les presets de boutons pour contrôler les GPIO.</li>
-<li><strong>udp-server.js</strong> : Simulateur de robot qui reçoit les commandes Set GPIO et renvoie des statuts.</li>
+<li><strong>src/main.js</strong> : Point d'entrée du module Companion (manifest <code>../src/main.js</code>), gère la configuration, le NetworkManager, les variables et les feedbacks.</li>
+<li><strong>src/network.js</strong> : Gère la connexion et la communication avec le robot via UDP.</li>
+<li><strong>src/actions.js</strong> : Définit les actions pulse / set on / set off pour les 32 bits GPIO.</li>
+<li><strong>src/feedbacks.js</strong> : Gère les feedbacks en fonction de l'état des bits GPIO.</li>
+<li><strong>src/presets.js</strong> : Crée les presets de boutons pour contrôler les GPIO (section « GPIO »).</li>
+<li><strong>src/variables.js</strong> : Déclare les variables <code>01</code> … <code>32</code> et <code>Full</code>.</li>
+<li><strong>src/protocol.js</strong> : Helpers purs du protocole UDP/GPIO (trames <code>INP</code> / <code>OUT</code>, masque, bits 1–32).</li>
+<li><strong>src/upgrades.js</strong> : Scripts de migration de configuration (aucun).</li>
+<li><strong>tools/udp-server.js</strong> : Simulateur de robot qui reçoit les commandes Set GPIO et renvoie des statuts (hors bundle).</li>
+<li><strong>test/</strong> : Tests <code>node --test</code> du protocole, des actions, du module et du NetworkManager (ports éphémères).</li>
 </ul>
-<h2>Installation</h2>
-<p>Clonez le dépôt dans votre dossier de modules Companion.
-Installer les dépendances :</p>
-<pre class="prettyprint source lang-bash"><code>npm install
+<h2>Installation (développement)</h2>
+<p>Clonez le dépôt dans un sous-dossier du chemin de modules développeur de Companion (option <code>--extra-module-path</code> ou réglage <em>Developer modules path</em>).
+Installer les dépendances avec Node 26 et Yarn 4 :</p>
+<pre class="prettyprint source lang-bash"><code>fnm use --install-if-missing
+corepack enable
+yarn install
 </code></pre>
 <p>Configurez l'IP et le port du robot dans Companion.
-Lancez Companion et sélectionnez le module &quot;Microfilms: GPIO&quot;.</p></article>
+Lancez Companion 5 et ajoutez la connexion &quot;Microfilms: Gpio&quot; (version <strong>Dev</strong>).</p>
+<h2>Tests</h2>
+<pre class="prettyprint source lang-bash"><code>yarn test
+yarn lint
+yarn format
+</code></pre>
+<p>Les tests figent le protocole UDP (trames de 13 / 7 octets, masque, Impulse 100 ms, ping 500 ms, timeout 3 s) et n'ouvrent jamais le port 7770. <code>yarn format</code> applique Prettier (configuration de <code>@companion-module/tools</code>) ; ESLint ne garde que les règles de qualité.</p>
+<h2>Packaging pour le déploiement</h2>
+<h3>Créer le bundle pour Companion 5</h3>
+<pre class="prettyprint source lang-bash"><code>yarn package
+</code></pre>
+<p>Cette commande (<code>companion-module-build</code>) génère le dossier <code>pkg/microfilms-gpio/</code> et l'archive <code>microfilms-gpio-&lt;version&gt;.tgz</code> à la racine du projet. C'est ce fichier que vous devez fournir à votre client.</p>
+<h3>Installation par le client (Companion 5)</h3>
+<ol>
+<li>Ouvrir l'interface web de Companion</li>
+<li>Aller dans <strong>Modules</strong></li>
+<li>Cliquer sur <strong>Import offline module bundle</strong></li>
+<li>Sélectionner le fichier <code>microfilms-gpio-&lt;version&gt;.tgz</code> fourni</li>
+<li>Le module sera installé automatiquement</li>
+<li>Aucun redémarrage nécessaire</li>
+</ol>
+<p>✅ <strong>Avantages</strong> : Installation simple via l'interface web, pas besoin d'accéder aux fichiers système.</p>
+<p>⚠️ <strong>Note sur la version</strong> : Pendant le développement, le module affichera &quot;Dev&quot; dans Companion. Une fois installé via le bundle offline, la version du <code>package.json</code> sera affichée.</p>
+<p>⚠️ <strong>Compatibilité</strong> : depuis la version 1.0.0, le module cible l'API <code>@companion-module/base</code> 2.x et ne se charge plus sur Companion 4.x ni 3.x. Depuis la version 1.1.0, il tourne sur le runtime <code>node26</code>.</p></article>
     </section>
 
 
@@ -140,13 +173,13 @@ Lancez Companion et sélectionnez le module &quot;Microfilms: GPIO&quot;.</p></a
 </div>
 
 <nav>
-    <h2><a href="index.html">Home</a></h2><h3>Modules</h3><ul><li><a href="module-ModuleInstance.html">ModuleInstance</a></li><li><a href="module-NetworkManager.html">NetworkManager</a></li></ul><h3>Classes</h3><ul><li><a href="module-ModuleInstance-ModuleInstance.html">ModuleInstance</a></li><li><a href="module-NetworkManager-NetworkManager.html">NetworkManager</a></li></ul><h3>Global</h3><ul><li><a href="global.html#PORT">PORT</a></li><li><a href="global.html#applyMaskAndUpdateGPIO">applyMaskAndUpdateGPIO</a></li><li><a href="global.html#dgram">dgram</a></li><li><a href="global.html#gpio">gpio</a></li><li><a href="global.html#impulseDelay">impulseDelay</a></li><li><a href="global.html#sendStatus">sendStatus</a></li><li><a href="global.html#server">server</a></li></ul>
+    <h2><a href="index.html">Home</a></h2><h3>Modules</h3><ul><li><a href="module-ModuleInstance.html">ModuleInstance</a></li><li><a href="module-NetworkManager.html">NetworkManager</a></li></ul><h3>Classes</h3><ul><li><a href="module-ModuleInstance-ModuleInstance.html">ModuleInstance</a></li><li><a href="module-NetworkManager-NetworkManager.html">NetworkManager</a></li></ul><h3>Global</h3><ul><li><a href="global.html#GPIO_LENGTH">GPIO_LENGTH</a></li><li><a href="global.html#IMPULSE_DELAY_MS">IMPULSE_DELAY_MS</a></li><li><a href="global.html#INP_HEADER">INP_HEADER</a></li><li><a href="global.html#INP_MIN_LENGTH">INP_MIN_LENGTH</a></li><li><a href="global.html#OUT_HEADER">OUT_HEADER</a></li><li><a href="global.html#OUT_MIN_LENGTH">OUT_MIN_LENGTH</a></li><li><a href="global.html#PING_INTERVAL_MS">PING_INTERVAL_MS</a></li><li><a href="global.html#PORT">PORT</a></li><li><a href="global.html#RECEPTION_TIMEOUT_MS">RECEPTION_TIMEOUT_MS</a></li><li><a href="global.html#RESERVED_LENGTH">RESERVED_LENGTH</a></li><li><a href="global.html#UpgradeScripts">UpgradeScripts</a></li><li><a href="global.html#applyMask">applyMask</a></li><li><a href="global.html#applyMaskAndUpdateGPIO">applyMaskAndUpdateGPIO</a></li><li><a href="global.html#bitBitMask">bitBitMask</a></li><li><a href="global.html#bitByteIndex">bitByteIndex</a></li><li><a href="global.html#buildImpulseFrames">buildImpulseFrames</a></li><li><a href="global.html#buildInpFrame">buildInpFrame</a></li><li><a href="global.html#buildOutFrame">buildOutFrame</a></li><li><a href="global.html#buildPingFrame">buildPingFrame</a></li><li><a href="global.html#bytesToBinaryString">bytesToBinaryString</a></li><li><a href="global.html#encodeBit">encodeBit</a></li><li><a href="global.html#gpio">gpio</a></li><li><a href="global.html#parseInpFrame">parseInpFrame</a></li><li><a href="global.html#parseOutFrame">parseOutFrame</a></li><li><a href="global.html#sendStatus">sendStatus</a></li><li><a href="global.html#server">server</a></li></ul>
 </nav>
 
 <br class="clear">
 
 <footer>
-    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.3</a> on Wed Oct 09 2024 08:24:09 GMT+0200 (Central European Summer Time)
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.5</a> on Mon Nov 09 2026 09:39:56 GMT+0100 (heure normale d’Europe centrale)
 </footer>
 
 <script> prettyPrint(); </script>

@@ -1,42 +1,51 @@
-## Module Microfilms GPIO
+## Microfilms GPIO
 
-⚠️ Ce module (1.0.1) requiert Companion 5.x. Pour Companion 4.x, utiliser une version 0.x du module.
+⚠️ This module (1.1.0) requires Companion 5.x. For Companion 4.x, use a 0.x version of the module.
 
-Contrôle des 32 bits GPIO d’un robot Microfilms (machinerie) depuis Companion et un Stream Deck, via UDP.
+Controls the 32 GPIO bits of a Microfilms robot (stage machinery) from Companion and a Stream Deck, over UDP.
 
 ### Configuration
 
-- **Target IP** : adresse du robot. Pour le simulateur local : `127.0.0.1` (défaut robot : `192.168.10.10`).
-- **Target Port** : port UDP, `7770` par défaut.
+- **Target IP**: robot address, `192.168.10.10` by default. For the local simulator: `127.0.0.1`.
+- **Target Port**: UDP port, `7770` by default.
 
-La connexion passe à **OK** dès qu’une réponse `Status` arrive. Un ping est envoyé toutes les 500 ms ; sans réponse pendant 3 s, le statut devient **Disconnected**.
+The connection turns **OK** as soon as a `Status` response arrives. A ping is sent every 500 ms; with no response for 3 s, the status turns **Disconnected**. Saving the configuration reconnects to the new address and port.
 
-### Actions (un bit = une action)
+### Actions (one bit = one action)
 
-- **Imp01 … Imp32** : impulsion 100 ms (ON puis OFF) sur le bit.
-- **Set01 … Set32** : met le bit à 1.
-- **Raz01 … Raz32** : met le bit à 0.
+- **GPIO 01 pulse (100 ms) … GPIO 32 pulse (100 ms)**: sets the bit on, then off after 100 ms.
+- **GPIO 01 set on … GPIO 32 set on**: sets the bit on and keeps it on.
+- **GPIO 01 set off … GPIO 32 set off**: sets the bit off.
 
-Les autres bits ne sont pas modifiés.
+The other bits are left unchanged.
 
-### Presets (section Divers)
+### Presets (GPIO section)
 
-- **IMP n** : à l’appui, exécute `Imp` (flash).
-- **TS n** (Two States) : appui = `Set`, relâchement = `Raz` (vert tant que la touche est maintenue).
+- **IMP n**: on press, runs the pulse action (flash).
+- **TS n** (Two states): press = set on, release = set off (green while the key is held).
 
 ### Feedbacks
 
-**Gpio01 … Gpio32** : couleur du bouton selon le dernier état renvoyé par le robot / simulateur.
+**Gpio01 … Gpio32**: button background color from the last state reported by the robot / simulator.
 
-- Presets : noir = off, vert = on.
-- Feedback nu : rouge = off, vert = on (couleurs réglables).
+- Presets: black = off, green = on.
+- Plain feedback: red = off, green = on (adjustable colors).
 
-### Tester sans robot (simulateur)
+### Variables
 
-Dans le dossier du module, avec Node 22 :
+| Variable                        | Value                                                                              |
+| ------------------------------- | ---------------------------------------------------------------------------------- |
+| `$(MFGpio:01)` … `$(MFGpio:32)` | State of GPIO 1 … 32: `0` (off) or `1` (on)                                        |
+| `$(MFGpio:Full)`                | The 32 bits as an unsigned integer, Little Endian (bit 1 = 1, bit 32 = 2147483648) |
+
+Replace `MFGpio` with the label of your connection. Variables are updated when a `Status` response reports a new state.
+
+### Testing without a robot (simulator)
+
+In the module folder, with Node 26:
 
 ```bash
-node udp-server.js
+node tools/udp-server.js
 ```
 
-Pointer la connexion vers `127.0.0.1:7770`. Des messages doivent défiler dans le terminal (pings). Placer un preset **TS 1**, maintenir la touche : bouton vert ; relâcher : bouton noir. Arrêter le simulateur : la connexion passe à **Disconnected**.
+Point the connection to `127.0.0.1:7770`. Messages scroll in the terminal (pings). Place a **TS 1** preset and hold the key: green button; release: black button. Stop the simulator: the connection turns **Disconnected**.
