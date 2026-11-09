@@ -171,6 +171,9 @@ class ModuleInstance extends InstanceBase {
 			}
 		}
 		this.impulseTimers.clear()
+		if (pending.length > 0) {
+			this.log('info', `Sent ${pending.length} pending pulse DOWN command(s) before stopping`)
+		}
 		await Promise.all(pending)
 	}
 
