@@ -35,8 +35,8 @@ const RESERVED_LENGTH = 2
  * bit : numéro de bit opérateur (1–32).
  * @returns {number} Index d'octet dans le buffer GPIO.
  */
-function bitByteIndex (bit) {
-  return Math.floor((bit - 1) / 8)
+function bitByteIndex(bit) {
+	return Math.floor((bit - 1) / 8)
 }
 
 /**
@@ -45,8 +45,8 @@ function bitByteIndex (bit) {
  * bit : numéro de bit opérateur (1–32).
  * @returns {number} Valeur `1 << ((N-1) % 8)`.
  */
-function bitBitMask (bit) {
-  return 1 << ((bit - 1) % 8)
+function bitBitMask(bit) {
+	return 1 << ((bit - 1) % 8)
 }
 
 /**
@@ -55,10 +55,10 @@ function bitBitMask (bit) {
  * bit : numéro de bit opérateur (1–32).
  * @returns {Buffer} Buffer de 4 octets.
  */
-function encodeBit (bit) {
-  const bytes = Buffer.alloc(GPIO_LENGTH)
-  bytes[bitByteIndex(bit)] = bitBitMask(bit)
-  return bytes
+function encodeBit(bit) {
+	const bytes = Buffer.alloc(GPIO_LENGTH)
+	bytes[bitByteIndex(bit)] = bitBitMask(bit)
+	return bytes
 }
 
 /**
@@ -68,13 +68,8 @@ function encodeBit (bit) {
  * maskBytes : 4 octets de masque.
  * @returns {Buffer} Trame INP complète.
  */
-function buildInpFrame (gpioBytes, maskBytes) {
-  return Buffer.concat([
-    Buffer.from(INP_HEADER),
-    gpioBytes,
-    maskBytes,
-    Buffer.alloc(RESERVED_LENGTH)
-  ])
+function buildInpFrame(gpioBytes, maskBytes) {
+	return Buffer.concat([Buffer.from(INP_HEADER), gpioBytes, maskBytes, Buffer.alloc(RESERVED_LENGTH)])
 }
 
 /**
@@ -82,8 +77,8 @@ function buildInpFrame (gpioBytes, maskBytes) {
  *
  * @returns {Buffer} Trame INP de ping.
  */
-function buildPingFrame () {
-  return buildInpFrame(Buffer.alloc(GPIO_LENGTH), Buffer.alloc(GPIO_LENGTH))
+function buildPingFrame() {
+	return buildInpFrame(Buffer.alloc(GPIO_LENGTH), Buffer.alloc(GPIO_LENGTH))
 }
 
 /**
@@ -92,12 +87,12 @@ function buildPingFrame () {
  * bit : numéro de bit opérateur (1–32).
  * @returns {{up: Buffer, down: Buffer}} Trames INP UP et DOWN.
  */
-function buildImpulseFrames (bit) {
-  const maskBytes = encodeBit(bit)
-  return {
-    up: buildInpFrame(encodeBit(bit), maskBytes),
-    down: buildInpFrame(Buffer.alloc(GPIO_LENGTH), maskBytes)
-  }
+function buildImpulseFrames(bit) {
+	const maskBytes = encodeBit(bit)
+	return {
+		up: buildInpFrame(encodeBit(bit), maskBytes),
+		down: buildInpFrame(Buffer.alloc(GPIO_LENGTH), maskBytes),
+	}
 }
 
 /**
@@ -109,12 +104,12 @@ function buildImpulseFrames (bit) {
  * masque : masque à appliquer (4 octets).
  * @returns {Buffer} Nouvel état GPIO de 4 octets.
  */
-function applyMask (etat, gpio, masque) {
-  const result = Buffer.alloc(GPIO_LENGTH)
-  for (let i = 0; i < GPIO_LENGTH; i++) {
-    result[i] = (etat[i] & ~masque[i]) | (gpio[i] & masque[i])
-  }
-  return result
+function applyMask(etat, gpio, masque) {
+	const result = Buffer.alloc(GPIO_LENGTH)
+	for (let i = 0; i < GPIO_LENGTH; i++) {
+		result[i] = (etat[i] & ~masque[i]) | (gpio[i] & masque[i])
+	}
+	return result
 }
 
 /**
@@ -123,15 +118,15 @@ function applyMask (etat, gpio, masque) {
  * msg : datagramme reçu.
  * @returns {Buffer|null} Octets GPIO, ou null si l'en-tête n'est pas OUT.
  */
-function parseOutFrame (msg) {
-  if (!msg || msg.length < 3) {
-    return null
-  }
-  const header = msg.subarray(0, 3).toString()
-  if (header !== OUT_HEADER) {
-    return null
-  }
-  return msg.subarray(3, 7)
+function parseOutFrame(msg) {
+	if (!msg || msg.length < 3) {
+		return null
+	}
+	const header = msg.subarray(0, 3).toString()
+	if (header !== OUT_HEADER) {
+		return null
+	}
+	return msg.subarray(3, 7)
 }
 
 /**
@@ -140,18 +135,18 @@ function parseOutFrame (msg) {
  * msg : datagramme reçu.
  * @returns {{gpioBytes: Buffer, maskBytes: Buffer}|null} Champs extraits, ou null.
  */
-function parseInpFrame (msg) {
-  if (!msg || msg.length < 3) {
-    return null
-  }
-  const header = msg.subarray(0, 3).toString()
-  if (header !== INP_HEADER) {
-    return null
-  }
-  return {
-    gpioBytes: msg.subarray(3, 7),
-    maskBytes: msg.subarray(7, 11)
-  }
+function parseInpFrame(msg) {
+	if (!msg || msg.length < 3) {
+		return null
+	}
+	const header = msg.subarray(0, 3).toString()
+	if (header !== INP_HEADER) {
+		return null
+	}
+	return {
+		gpioBytes: msg.subarray(3, 7),
+		maskBytes: msg.subarray(7, 11),
+	}
 }
 
 /**
@@ -160,24 +155,24 @@ function parseInpFrame (msg) {
  * gpioBytes : état GPIO à renvoyer.
  * @returns {Buffer} Trame OUT complète.
  */
-function buildOutFrame (gpioBytes) {
-  return Buffer.concat([Buffer.from(OUT_HEADER), gpioBytes])
+function buildOutFrame(gpioBytes) {
+	return Buffer.concat([Buffer.from(OUT_HEADER), gpioBytes])
 }
 
 export {
-  INP_HEADER,
-  OUT_HEADER,
-  IMPULSE_DELAY_MS,
-  PING_INTERVAL_MS,
-  RECEPTION_TIMEOUT_MS,
-  bitByteIndex,
-  bitBitMask,
-  encodeBit,
-  buildInpFrame,
-  buildPingFrame,
-  buildImpulseFrames,
-  applyMask,
-  parseOutFrame,
-  parseInpFrame,
-  buildOutFrame
+	INP_HEADER,
+	OUT_HEADER,
+	IMPULSE_DELAY_MS,
+	PING_INTERVAL_MS,
+	RECEPTION_TIMEOUT_MS,
+	bitByteIndex,
+	bitBitMask,
+	encodeBit,
+	buildInpFrame,
+	buildPingFrame,
+	buildImpulseFrames,
+	applyMask,
+	parseOutFrame,
+	parseInpFrame,
+	buildOutFrame,
 }

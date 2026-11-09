@@ -34,9 +34,9 @@ const gpio = Buffer.alloc(4) // 4 octets pour les 32 GPIO (initialisés à 0)
  * @param {Buffer} gpioBytes - Les nouvelles valeurs des GPIO
  * @param {Buffer} maskBytes - Le masque à appliquer
  */
-function applyMaskAndUpdateGPIO (gpioBytes, maskBytes) {
-  const next = applyMask(gpio, gpioBytes, maskBytes)
-  next.copy(gpio)
+function applyMaskAndUpdateGPIO(gpioBytes, maskBytes) {
+	const next = applyMask(gpio, gpioBytes, maskBytes)
+	next.copy(gpio)
 }
 
 /**
@@ -47,15 +47,15 @@ function applyMaskAndUpdateGPIO (gpioBytes, maskBytes) {
  *
  * @param {Object} rinfo - Informations sur le client (adresse et port)
  */
-function sendStatus (rinfo) {
-  const statusMessage = buildOutFrame(gpio)
-  server.send(statusMessage, rinfo.port, rinfo.address, (err) => {
-    if (err) {
-      console.error('Erreur lors de l\'envoi du message :', err)
-    } else {
-      console.log(`Message "Status" envoyé à ${rinfo.address}:${rinfo.port}`)
-    }
-  })
+function sendStatus(rinfo) {
+	const statusMessage = buildOutFrame(gpio)
+	server.send(statusMessage, rinfo.port, rinfo.address, (err) => {
+		if (err) {
+			console.error("Erreur lors de l'envoi du message :", err)
+		} else {
+			console.log(`Message "Status" envoyé à ${rinfo.address}:${rinfo.port}`)
+		}
+	})
 }
 
 /**
@@ -68,18 +68,18 @@ function sendStatus (rinfo) {
  * @param {Object} rinfo - Informations sur l'expéditeur (adresse et port)
  */
 server.on('message', (msg, rinfo) => {
-  console.log(`Message reçu de ${rinfo.address}:${rinfo.port}`)
+	console.log(`Message reçu de ${rinfo.address}:${rinfo.port}`)
 
-  const parsed = parseInpFrame(msg)
-  if (!parsed) {
-    console.error('Commande invalide, en-tête incorrect')
-    return
-  }
+	const parsed = parseInpFrame(msg)
+	if (!parsed) {
+		console.error('Commande invalide, en-tête incorrect')
+		return
+	}
 
-  applyMaskAndUpdateGPIO(parsed.gpioBytes, parsed.maskBytes)
+	applyMaskAndUpdateGPIO(parsed.gpioBytes, parsed.maskBytes)
 
-  // Envoyer une réponse "Status" immédiatement après la commande reçue
-  sendStatus(rinfo)
+	// Envoyer une réponse "Status" immédiatement après la commande reçue
+	sendStatus(rinfo)
 })
 
 /**
@@ -90,8 +90,8 @@ server.on('message', (msg, rinfo) => {
  * @param {Error} err - L'erreur survenue
  */
 server.on('error', (err) => {
-  console.error(`Erreur du serveur : ${err.stack}`)
-  server.close()
+	console.error(`Erreur du serveur : ${err.stack}`)
+	server.close()
 })
 
 /**
@@ -101,5 +101,5 @@ server.on('error', (err) => {
  */
 const PORT = 7770
 server.bind(PORT, () => {
-  console.log(`Serveur UDP en écoute sur le port ${PORT}`)
+	console.log(`Serveur UDP en écoute sur le port ${PORT}`)
 })

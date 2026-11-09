@@ -16,15 +16,13 @@
 		}
 	],
 	"runtime": {
-		"type": "node22",
+		"type": "node26",
 		"api": "nodejs-ipc",
 		"apiVersion": "2.1.3",
 		"entrypoint": "../src/main.js"
 	},
 	"legacyIds": [],
 	"manufacturer": "Microfilms",
-	"products": [
-		"Gpio"
-	],
+	"products": ["Gpio"],
 	"keywords": []
 }

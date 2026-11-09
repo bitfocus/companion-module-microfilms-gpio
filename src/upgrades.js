@@ -5,11 +5,11 @@
  */
 
 export const UpgradeScripts = [
-  // function (context, props) {
-  // 	return {
-  // 		updatedConfig: null,
-  // 		updatedActions: [],
-  // 		updatedFeedbacks: [],
-  // 	}
-  // },
+	// function (context, props) {
+	// 	return {
+	// 		updatedConfig: null,
+	// 		updatedActions: [],
+	// 		updatedFeedbacks: [],
+	// 	}
+	// },
 ]

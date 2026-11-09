@@ -29,29 +29,38 @@ Le module gère 32 bits GPIO (répartis sur 4 octets) et envoie des commandes au
 ## Structure des commandes
 
 ### Commande `Set GPIO`
+
 La commande `Set GPIO` est envoyée par le module Companion pour définir l'état des GPIO. Elle contient les informations suivantes :
+
 - **En-tête** : `INP` (3 octets) pour identifier la commande.
 - **GPIO Bytes** : 4 octets représentant l'état des 32 GPIO.
 - **Mask Bytes** : 4 octets pour appliquer un masque sur les GPIO à modifier.
 
 ### Réponse `Status`
+
 Le robot répond avec un message `Status`, contenant :
+
 - **En-tête** : `OUT` (3 octets).
 - **GPIO Bytes** : 4 octets représentant l'état actuel des 32 GPIO.
 
 ### Exemple de Message UDP
+
 #### Envoi `Set GPIO` (Activer GPIO bit 1)
-``` bash
+
+```bash
 INP 00000000 00000000 00000000 00000001 00000000 00000000 00000000 00000001
 ```
+
 - En-tête : `INP`
 - GPIO Bytes : `[00000000 00000000 00000000 00000001]` (bit 1 activé)
 - Mask Bytes : `[00000000 00000000 00000000 00000001]` (le premier octet est pris en compte, les autres sont ignorés)
 
 #### Réponse `Status`
-``` bash
+
+```bash
 INP 00000000 00000000 00000000 00000001
 ```
+
 - En-tête : `OUT`
 - GPIO Bytes : `[00000000 00000000 00000000 00000001]` (bit 1 activé)
 
@@ -62,14 +71,18 @@ INP 00000000 00000000 00000000 00000001
 3. **Réception des Statuts** : Le robot envoie un message "Status" en réponse, et le module met à jour les feedbacks en fonction de l'état actuel des GPIO.
 
 ## Simulateur UDP du Robot
+
 Un simulateur de robot est inclus pour tester le module Companion sans avoir accès à un robot physique. Le simulateur écoute sur un port UDP et réagit aux commandes Set GPIO en renvoyant une réponse Status avec les GPIO mis à jour.
 
 ### Utilisation du simulateur
+
 1. Lancez le simulateur de robot UDP (Node 22) :
-``` bash
+
+```bash
 fnm use --install-if-missing
 node udp-server.js
 ```
+
 2. Configurez l'IP et le port du simulateur dans le module Companion.
 3. Utilisez l'interface Companion pour envoyer des commandes et observer les réponses.
 
@@ -86,18 +99,20 @@ node udp-server.js
 
 ## Installation (développement)
 
-Clonez le dépôt dans un sous-dossier du chemin de modules développeur de Companion (option `--extra-module-path` ou réglage *Developer modules path*).
+Clonez le dépôt dans un sous-dossier du chemin de modules développeur de Companion (option `--extra-module-path` ou réglage _Developer modules path_).
 Installer les dépendances avec Node 22 :
-``` bash
+
+```bash
 fnm use --install-if-missing
 npm install
 ```
+
 Configurez l'IP et le port du robot dans Companion.
 Lancez Companion 5 et ajoutez la connexion "Microfilms: Gpio" (version **Dev**).
 
 ## Tests
 
-``` bash
+```bash
 npm test
 ```
 
@@ -106,12 +121,15 @@ Les tests figent le protocole UDP (trames de 13 / 7 octets, masque, Impulse 100 
 ## Packaging pour le déploiement
 
 ### Créer le bundle pour Companion 5
+
 ```bash
 npm run package
 ```
+
 Cette commande (`companion-module-build`) génère le dossier `pkg/microfilms-gpio/` et l'archive `microfilms-gpio-<version>.tgz` à la racine du projet. C'est ce fichier que vous devez fournir à votre client.
 
 ### Installation par le client (Companion 5)
+
 1. Ouvrir l'interface web de Companion
 2. Aller dans **Modules**
 3. Cliquer sur **Import offline module bundle**

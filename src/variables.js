@@ -12,35 +12,35 @@
  * @returns {Promise<void>}
  */
 export default async function () {
-  const variableDefinitions = {}
+	const variableDefinitions = {}
 
-  /**
-   * Génère les 32 variables correspondant aux 32 bits GPIO
-   */
-  for (let i = 0; i < 32; i++) {
-    /**
-     * Définition d'une variable pour un bit GPIO spécifique, indexée par son identifiant
-     *
-     * @type {Object}
-     * @property {string} name - Le nom descriptif de la variable
-     */
-    variableDefinitions[`${String(i + 1).padStart(2, '0')}`] = {
-      name: `Gpio${String(i + 1).padStart(2, '0')}` // Nommer chaque variable en fonction du bit
-    }
-  }
+	/**
+	 * Génère les 32 variables correspondant aux 32 bits GPIO
+	 */
+	for (let i = 0; i < 32; i++) {
+		/**
+		 * Définition d'une variable pour un bit GPIO spécifique, indexée par son identifiant
+		 *
+		 * @type {Object}
+		 * @property {string} name - Le nom descriptif de la variable
+		 */
+		variableDefinitions[`${String(i + 1).padStart(2, '0')}`] = {
+			name: `Gpio${String(i + 1).padStart(2, '0')}`, // Nommer chaque variable en fonction du bit
+		}
+	}
 
-  /**
-   * Définition de la variable représentant l'état complet des GPIO
-   *
-   * @type {Object}
-   * @property {string} name - Le nom descriptif de la variable
-   */
-  variableDefinitions.Full = {
-    name: 'GPIO Full (Little Endian)'
-  }
+	/**
+	 * Définition de la variable représentant l'état complet des GPIO
+	 *
+	 * @type {Object}
+	 * @property {string} name - Le nom descriptif de la variable
+	 */
+	variableDefinitions.Full = {
+		name: 'GPIO Full (Little Endian)',
+	}
 
-  /**
-   * Définit toutes les variables générées pour être utilisées par le système
-   */
-  this.setVariableDefinitions(variableDefinitions)
+	/**
+	 * Définit toutes les variables générées pour être utilisées par le système
+	 */
+	this.setVariableDefinitions(variableDefinitions)
 }

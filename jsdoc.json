@@ -1,24 +1,24 @@
 {
-  "tags": {
-      "allowUnknownTags": true,
-      "dictionaries": ["jsdoc"]
-  },
-  "source": {
-      "include": ["."],
-      "exclude": ["node_modules"],
-      "includePattern": ".+\\.js(doc|x)?$",
-      "excludePattern": "(^|\\/|\\\\)_"
-  },
-  "plugins": ["plugins/markdown"],
-  "templates": {
-      "cleverLinks": false,
-      "monospaceLinks": false
-  },
-  "opts": {
-      "encoding": "utf8",
-      "destination": "./docs",
-      "recurse": true,
-      "verbose": true,
-      "readme": "./README.md"
-  }
+	"tags": {
+		"allowUnknownTags": true,
+		"dictionaries": ["jsdoc"]
+	},
+	"source": {
+		"include": ["."],
+		"exclude": ["node_modules"],
+		"includePattern": ".+\\.js(doc|x)?$",
+		"excludePattern": "(^|\\/|\\\\)_"
+	},
+	"plugins": ["plugins/markdown"],
+	"templates": {
+		"cleverLinks": false,
+		"monospaceLinks": false
+	},
+	"opts": {
+		"encoding": "utf8",
+		"destination": "./docs",
+		"recurse": true,
+		"verbose": true,
+		"readme": "./README.md"
+	}
 }
