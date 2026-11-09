@@ -9,10 +9,10 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { InstanceBase, combineRgb } from '@companion-module/base'
-import initActions from '../actions.js'
-import initFeedbacks from '../feedbacks.js'
-import initPresets from '../presets.js'
-import initVariables from '../variables.js'
+import initActions from '../src/actions.js'
+import initFeedbacks from '../src/feedbacks.js'
+import initPresets from '../src/presets.js'
+import initVariables from '../src/variables.js'
 
 const appDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -71,7 +71,7 @@ async function captureVariables () {
 
 nodeTest.describe('entrypoint ESM main.js', () => {
   nodeTest('exporte la classe module par défaut et UpgradeScripts', async () => {
-    const mod = await import('../main.js')
+    const mod = await import('../src/main.js')
     assert.equal(typeof mod.default, 'function')
     assert.ok(mod.default.prototype instanceof InstanceBase)
     assert.ok(Array.isArray(mod.UpgradeScripts))

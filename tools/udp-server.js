@@ -4,11 +4,11 @@
  *
  * Modules requis :
  * - dgram (module natif de Node.js pour UDP)
- * - ./protocol (helpers purs du protocole UDP/GPIO)
+ * - ../src/protocol (helpers purs du protocole UDP/GPIO)
  */
 
 import dgram from 'node:dgram'
-import { applyMask, parseInpFrame, buildOutFrame } from './protocol.js'
+import { applyMask, parseInpFrame, buildOutFrame } from '../src/protocol.js'
 
 /**
  * Création d'un socket UDP pour le serveur

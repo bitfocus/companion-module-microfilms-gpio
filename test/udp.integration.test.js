@@ -1,12 +1,12 @@
 /**
  * Tests d'intégration UDP locaux (port éphémère) + NetworkManager.
- * N'importe jamais udp-server.js (bind 7770 à l'import).
+ * N'importe jamais tools/udp-server.js (bind 7770 à l'import).
  */
 
 import nodeTest from 'node:test'
 import assert from 'node:assert/strict'
 import dgram from 'node:dgram'
-import NetworkManager from '../network.js'
+import NetworkManager from '../src/network.js'
 import {
   applyMask,
   parseInpFrame,
@@ -15,7 +15,7 @@ import {
   encodeBit,
   PING_INTERVAL_MS,
   RECEPTION_TIMEOUT_MS
-} from '../protocol.js'
+} from '../src/protocol.js'
 
 /**
  * Attend un événement unique ou échoue après timeoutMs.

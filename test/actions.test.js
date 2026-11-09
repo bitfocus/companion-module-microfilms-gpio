@@ -4,8 +4,8 @@
 
 import nodeTest from 'node:test'
 import assert from 'node:assert/strict'
-import initActions from '../actions.js'
-import { IMPULSE_DELAY_MS, INP_HEADER } from '../protocol.js'
+import initActions from '../src/actions.js'
+import { IMPULSE_DELAY_MS, INP_HEADER } from '../src/protocol.js'
 
 /**
  * Lie actions.js à un contexte Companion minimal.

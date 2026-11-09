@@ -19,7 +19,7 @@ import {
   encodeBit,
   bitByteIndex,
   bitBitMask
-} from '../protocol.js'
+} from '../src/protocol.js'
 
 nodeTest.describe('indexation bit 1–32', () => {
   nodeTest('place le bit 1 dans l’octet 0, valeur 0x01', () => {
