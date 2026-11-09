@@ -30,7 +30,7 @@ export default function () {
 		 */
 		feedbackDefinitions[`gpio_state_bit_${i + 1}`] = {
 			type: 'advanced',
-			name: `Gpio${String(i + 1).padStart(2, '0')}`,
+			name: `GPIO ${String(i + 1).padStart(2, '0')} state`,
 			description: `Sets the button background color from the state of GPIO ${i + 1} (off / on)`,
 			affectedProperties: ['bgcolor'],
 			options: [

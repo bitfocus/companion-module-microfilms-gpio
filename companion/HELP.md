@@ -26,7 +26,7 @@ The other bits are left unchanged.
 
 ### Feedbacks
 
-**Gpio01 … Gpio32**: button background color from the last state reported by the robot / simulator.
+**GPIO 01 state … GPIO 32 state**: button background color from the last state reported by the robot / simulator.
 
 - Presets: black = off, green = on.
 - Plain feedback: red = off, green = on (adjustable colors).

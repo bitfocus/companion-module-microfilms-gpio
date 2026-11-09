@@ -183,7 +183,7 @@ nodeTest.describe('feedbacks.js (API 2.x)', () => {
 	nodeTest('options en anglais, défauts rouge / vert', async () => {
 		const defs = await captureFeedbacks()
 		const [colorOff, colorOn] = defs.gpio_state_bit_5.options
-		assert.equal(defs.gpio_state_bit_5.name, 'Gpio05')
+		assert.equal(defs.gpio_state_bit_5.name, 'GPIO 05 state')
 		assert.equal(colorOff.label, 'Background color when off')
 		assert.equal(colorOff.default, colors.red)
 		assert.equal(colorOn.label, 'Background color when on')
