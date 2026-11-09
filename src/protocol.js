@@ -29,6 +29,12 @@ const GPIO_LENGTH = 4
 /** Longueur des octets réservés en fin de trame INP. */
 const RESERVED_LENGTH = 2
 
+/** Longueur minimale d'une trame OUT exploitable : en-tête + GPIO. */
+const OUT_MIN_LENGTH = OUT_HEADER.length + GPIO_LENGTH
+
+/** Longueur minimale d'une trame INP exploitable : en-tête + GPIO + masque. */
+const INP_MIN_LENGTH = INP_HEADER.length + 2 * GPIO_LENGTH
+
 /**
  * Calcule l'index d'octet (0–3) pour le bit opérateur N (1–32).
  *
@@ -116,10 +122,10 @@ function applyMask(etat, gpio, masque) {
  * Analyse une trame OUT. Retourne les 4 octets GPIO si l'en-tête est valide.
  *
  * msg : datagramme reçu.
- * @returns {Buffer|null} Octets GPIO, ou null si l'en-tête n'est pas OUT.
+ * @returns {Buffer|null} Octets GPIO, ou null si la trame est trop courte ou si l'en-tête n'est pas OUT.
  */
 function parseOutFrame(msg) {
-	if (!msg || msg.length < 3) {
+	if (!msg || msg.length < OUT_MIN_LENGTH) {
 		return null
 	}
 	const header = msg.subarray(0, 3).toString()
@@ -133,10 +139,11 @@ function parseOutFrame(msg) {
  * Analyse une trame INP. Retourne GPIO et masque si l'en-tête est valide.
  *
  * msg : datagramme reçu.
- * @returns {{gpioBytes: Buffer, maskBytes: Buffer}|null} Champs extraits, ou null.
+ * @returns {{gpioBytes: Buffer, maskBytes: Buffer}|null} Champs extraits, ou null si la trame est trop courte
+ * ou si l'en-tête n'est pas INP.
  */
 function parseInpFrame(msg) {
-	if (!msg || msg.length < 3) {
+	if (!msg || msg.length < INP_MIN_LENGTH) {
 		return null
 	}
 	const header = msg.subarray(0, 3).toString()
@@ -159,6 +166,19 @@ function buildOutFrame(gpioBytes) {
 	return Buffer.concat([Buffer.from(OUT_HEADER), gpioBytes])
 }
 
+/**
+ * Représente des octets GPIO en binaire, octet de poids fort en tête (bit 32 à gauche).
+ *
+ * gpioBytes : octets GPIO en Little Endian.
+ * @returns {string} Groupes de 8 bits séparés par des espaces.
+ */
+function bytesToBinaryString(gpioBytes) {
+	return Array.from(gpioBytes)
+		.reverse()
+		.map((byte) => byte.toString(2).padStart(8, '0'))
+		.join(' ')
+}
+
 export {
 	INP_HEADER,
 	OUT_HEADER,
@@ -175,4 +195,5 @@ export {
 	parseOutFrame,
 	parseInpFrame,
 	buildOutFrame,
+	bytesToBinaryString,
 }

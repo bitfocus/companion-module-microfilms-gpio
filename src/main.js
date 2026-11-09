@@ -10,6 +10,7 @@
  * @requires ./presets
  * @requires ./variables
  * @requires ./network
+ * @requires ./protocol
  *
  * @description
  * Ce module initialise et gère les connexions réseau pour contrôler les GPIO,
@@ -24,6 +25,19 @@ import initFeedbacks from './feedbacks.js'
 import initPresets from './presets.js'
 import initVariables from './variables.js'
 import NetworkManager from './network.js'
+import { bytesToBinaryString } from './protocol.js'
+
+/** Adresse IP du robot utilisée si le champ de configuration est vide. */
+const DEFAULT_HOST = '192.168.10.10'
+
+/** Port UDP du robot utilisé si le champ de configuration est vide. */
+const DEFAULT_PORT = 7770
+
+/** Nombre de bits GPIO gérés par le module. */
+const GPIO_COUNT = 32
+
+/** Identifiants des feedbacks GPIO, rechargés à chaque changement d'état. */
+const FEEDBACK_IDS = Array.from({ length: GPIO_COUNT }, (_, i) => `gpio_state_bit_${i + 1}`)
 
 /**
  * Classe représentant une instance de module.
@@ -47,8 +61,6 @@ class ModuleInstance extends InstanceBase {
 	 */
 	// eslint-disable-next-line no-unused-vars
 	async init(config, isFirstInit, secrets) {
-		this.updateStatus(InstanceStatus.Connecting)
-		this.config = config
 		// Couleurs prédéfinies pour les feedbacks
 		this.colors = {
 			white: combineRgb(255, 255, 255),
@@ -57,55 +69,103 @@ class ModuleInstance extends InstanceBase {
 			red: combineRgb(200, 0, 0),
 		}
 
-		this.gpioBytes = Buffer.from([0, 0, 0, 0]) // Valeur GPIO à envoyer
-		this.config.port = this.config.port || 7770 // Port par défaut
-		this.config.host = this.config.host || '192.168.10.10' // Adresse IP par défaut
-
 		this.setGpioHeader = Buffer.from('INP')
-		this.gpioBytes = Buffer.from([0, 0, 0, 0])
+		this.gpioBytes = Buffer.alloc(4) // Dernier état GPIO connu (lu par les feedbacks)
+		this.lastGpioBytes = null // Dernier état publié dans les variables et feedbacks
+		this.impulseTimers = new Set() // DOWN différés des impulsions en attente
 
-		// Initialiser le NetworkManager
-		this.networkManager = new NetworkManager(this.config, this.log.bind(this), this.setGpioHeader, this.gpioBytes)
+		initActions.call(this) // export actions
+		initFeedbacks.call(this) // export feedbacks
+		initPresets.call(this) // export presets
+		initVariables.call(this) // export variables
 
-		// Écouter les événements émis par le NetworkManager
-		this.networkManager.on('gpioStatus', (gpioBytes) => {
-			this.gpioBytes = gpioBytes
-			this.setVariableValues({ gpio: this.gpioBytes.readUInt32LE(0) })
-			for (let i = 0; i < 32; i++) {
-				const byteIndex = Math.floor(i / 8) // Indice de l'octet
-				const bitIndex = i % 8 // Position du bit dans l'octet
-				const bitValue = (this.gpioBytes[byteIndex] & (1 << bitIndex)) !== 0 ? 1 : 0
+		this.createNetworkManager(config)
 
-				// Mettre à jour la variable correspondante (state1, state2, ..., state32)
-				this.setVariableValues({ [`state${i + 1}`]: bitValue })
-				// Mettre à jour les feedbacks correspondants
-				// (gpio_state_bit_1, gpio_state_bit_2, ..., gpio_state_bit_32)
-				this.checkFeedbacks(`gpio_state_bit_${i + 1}`)
-			}
-			this.updateStatus(InstanceStatus.Ok)
+		// Module initialisé
+		this.log('info', 'Microfilms GPIO started!')
+	}
+
+	/**
+	 * Remplace le NetworkManager courant par un nouveau, construit sur la configuration donnée
+	 * (défauts appliqués aux champs vides), et y branche les handlers d'événements.
+	 * L'état publié est oublié pour que le premier statut reçu soit republié.
+	 * @param {Object} config - La configuration du module.
+	 * @returns {void}
+	 */
+	createNetworkManager(config) {
+		if (this.networkManager) {
+			this.networkManager.removeAllListeners()
+			this.networkManager.destroy()
+		}
+
+		this.config = {
+			...config,
+			host: config?.host || DEFAULT_HOST,
+			port: Number(config?.port) || DEFAULT_PORT,
+		}
+		this.lastGpioBytes = null
+		this.updateStatus(InstanceStatus.Connecting)
+
+		const networkManager = new NetworkManager(this.config, this.log.bind(this), this.setGpioHeader, this.gpioBytes)
+
+		networkManager.on('gpioStatus', (gpioBytes) => {
+			this.handleGpioStatus(gpioBytes)
 		})
 
-		this.networkManager.on('connectionFailure', (error) => {
+		networkManager.on('connectionFailure', (error) => {
 			this.log('error', `Connection failure: ${error}`)
 			this.updateStatus(InstanceStatus.ConnectionFailure)
 		})
 
-		this.networkManager.on('noResponse', (message) => {
+		networkManager.on('noResponse', (message) => {
 			this.log('error', `No response: ${message}`)
 			this.updateStatus(InstanceStatus.Disconnected)
 		})
 
-		this.networkManager.on('sendError', (error) => {
+		networkManager.on('sendError', (error) => {
 			this.log('error', `Error sending "Set GPIO" command: ${error}`)
 		})
 
-		initActions.bind(this)() // export actions
-		initFeedbacks.bind(this)() // export feedbacks
-		initPresets.bind(this)() // export presets
-		initVariables.bind(this)() // export variables
+		this.networkManager = networkManager
+	}
 
-		// Module initialisé
-		this.log('info', 'Microfilms GPIO started!')
+	/**
+	 * Traite une réponse "Status" : statut Ok à chaque réponse, puis publication groupée
+	 * des variables `01`…`32` et `Full` et recheck des feedbacks si l'état GPIO a changé.
+	 * @param {Buffer} gpioBytes - Les 4 octets GPIO reçus (Little Endian).
+	 * @returns {void}
+	 */
+	handleGpioStatus(gpioBytes) {
+		this.updateStatus(InstanceStatus.Ok)
+		if (this.lastGpioBytes?.equals(gpioBytes)) {
+			return
+		}
+
+		this.gpioBytes = Buffer.from(gpioBytes)
+		this.lastGpioBytes = this.gpioBytes
+
+		const values = { Full: this.gpioBytes.readUInt32LE(0) }
+		for (let i = 0; i < GPIO_COUNT; i++) {
+			const bitValue = (this.gpioBytes[Math.floor(i / 8)] & (1 << (i % 8))) !== 0 ? 1 : 0
+			values[String(i + 1).padStart(2, '0')] = bitValue
+		}
+		this.setVariableValues(values)
+		this.checkFeedbacks(...FEEDBACK_IDS)
+		this.log('info', `GPIO status changed (GPIO=${bytesToBinaryString(this.gpioBytes)})`)
+	}
+
+	/**
+	 * Annule les DOWN différés des impulsions en attente.
+	 * @returns {void}
+	 */
+	clearImpulseTimers() {
+		if (!this.impulseTimers) {
+			return
+		}
+		for (const timer of this.impulseTimers) {
+			clearTimeout(timer)
+		}
+		this.impulseTimers.clear()
 	}
 
 	/**
@@ -114,23 +174,22 @@ class ModuleInstance extends InstanceBase {
 	 */
 	async destroy() {
 		this.log('debug', 'destroy')
+		this.clearImpulseTimers()
 		if (this.networkManager) {
+			this.networkManager.removeAllListeners()
 			this.networkManager.destroy()
+			delete this.networkManager
 		}
 	}
 
 	/**
-	 * Met à jour la configuration du module.
+	 * Met à jour la configuration du module et reconstruit le NetworkManager.
 	 * @param {Object} config - La nouvelle configuration du module.
 	 * @returns {Promise<void>}
 	 */
 	async configUpdated(config) {
-		this.config = config
-		// Mettre à jour le NetworkManager avec la nouvelle configuration
-		if (this.networkManager) {
-			this.networkManager.destroy()
-		}
-		this.networkManager = new NetworkManager(this.config, this.log.bind(this))
+		this.clearImpulseTimers()
+		this.createNetworkManager(config)
 		this.log('info', 'Config updated')
 	}
 
@@ -146,6 +205,7 @@ class ModuleInstance extends InstanceBase {
 				label: 'Target IP',
 				width: 8,
 				regex: Regex.IP,
+				default: DEFAULT_HOST,
 			},
 			{
 				type: 'textinput',
@@ -153,6 +213,7 @@ class ModuleInstance extends InstanceBase {
 				label: 'Target Port',
 				width: 4,
 				regex: Regex.PORT,
+				default: String(DEFAULT_PORT),
 			},
 		]
 	}

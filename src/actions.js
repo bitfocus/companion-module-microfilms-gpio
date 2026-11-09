@@ -4,15 +4,15 @@
  *
  * Modules requis :
  * - Buffer (natif de Node.js)
- * - UDP (supposé être importé ailleurs dans le code)
  * - ./protocol (helpers purs du protocole UDP/GPIO)
  */
 
-import { buildImpulseFrames, buildInpFrame, encodeBit, IMPULSE_DELAY_MS } from './protocol.js'
+import { buildImpulseFrames, buildInpFrame, bytesToBinaryString, encodeBit, IMPULSE_DELAY_MS } from './protocol.js'
 
 /**
  * Fonction principale qui définit et configure les actions pour le contrôle des GPIO.
  * Cette fonction est exportée et sera appelée lors de l'initialisation du module.
+ * Les DOWN différés des impulsions sont suivis dans `this.impulseTimers` pour être annulés à l'arrêt.
  *
  * @returns {void}
  */
@@ -20,29 +20,36 @@ export default function () {
 	const actionDefinitions = {}
 
 	for (let i = 0; i < 32; i++) {
+		const bit = i + 1
+		const label = `GPIO ${String(bit).padStart(2, '0')}`
+
 		/**
 		 * Action pour envoyer une impulsion à un bit GPIO spécifique.
-		 * Cette action envoie d'abord un signal UP, attend un court délai, puis envoie un signal DOWN.
+		 * Cette action envoie d'abord un signal UP, attend IMPULSE_DELAY_MS, puis envoie un signal DOWN.
 		 *
 		 * @type {Object}
 		 * @property {string} name - Le nom de l'action
+		 * @property {string} description - La description de l'action
 		 * @property {Array} options - Les options de l'action (vide dans ce cas)
 		 * @property {Function} callback - La fonction de rappel asynchrone exécutée lors de l'appel de l'action
 		 */
-		actionDefinitions[`impulse${i + 1}`] = {
-			name: `Imp${String(i + 1).padStart(2, '0')}`,
+		actionDefinitions[`impulse${bit}`] = {
+			name: `${label} pulse (${IMPULSE_DELAY_MS} ms)`,
+			description: `Sets GPIO ${bit} on, then off after ${IMPULSE_DELAY_MS} ms. Other GPIOs are left unchanged.`,
 			options: [],
 			callback: async () => {
-				const { up, down } = buildImpulseFrames(i + 1)
+				const { up, down } = buildImpulseFrames(bit)
 				const gpioBytesUp = up.subarray(3, 7)
 
 				this.networkManager.sendGpioCommand(up)
-				setTimeout(() => {
+				const timer = setTimeout(() => {
+					this.impulseTimers.delete(timer)
 					this.networkManager.sendGpioCommand(down)
 				}, IMPULSE_DELAY_MS)
+				this.impulseTimers.add(timer)
 				this.log(
 					'info',
-					`"Set GPIO bit ${i + 1} UP" sent to ${this.config.host}:${this.config.port} (GPIO=${this.byteToBinaryString(gpioBytesUp)})`,
+					`"Set GPIO bit ${bit} UP" sent to ${this.config.host}:${this.config.port} (GPIO=${bytesToBinaryString(gpioBytesUp)})`,
 				)
 			},
 		}
@@ -52,20 +59,22 @@ export default function () {
 		 *
 		 * @type {Object}
 		 * @property {string} name - Le nom de l'action
+		 * @property {string} description - La description de l'action
 		 * @property {Array} options - Les options de l'action (vide dans ce cas)
 		 * @property {Function} callback - La fonction de rappel asynchrone exécutée lors de l'appel de l'action
 		 */
-		actionDefinitions[`up${i + 1}`] = {
-			name: `Set${String(i + 1).padStart(2, '0')}`,
+		actionDefinitions[`up${bit}`] = {
+			name: `${label} set on`,
+			description: `Sets GPIO ${bit} on and keeps it on. Other GPIOs are left unchanged.`,
 			options: [],
 			callback: async () => {
-				const gpioBytesUp = encodeBit(i + 1)
-				const msgUp = buildInpFrame(gpioBytesUp, encodeBit(i + 1))
+				const gpioBytesUp = encodeBit(bit)
+				const msgUp = buildInpFrame(gpioBytesUp, encodeBit(bit))
 
 				this.networkManager.sendGpioCommand(msgUp)
 				this.log(
 					'info',
-					`"Set GPIO bit ${i + 1} UP" sent to ${this.config.host}:${this.config.port} (GPIO=${this.byteToBinaryString(gpioBytesUp)})`,
+					`"Set GPIO bit ${bit} UP" sent to ${this.config.host}:${this.config.port} (GPIO=${bytesToBinaryString(gpioBytesUp)})`,
 				)
 			},
 		}
@@ -75,20 +84,22 @@ export default function () {
 		 *
 		 * @type {Object}
 		 * @property {string} name - Le nom de l'action
+		 * @property {string} description - La description de l'action
 		 * @property {Array} options - Les options de l'action (vide dans ce cas)
 		 * @property {Function} callback - La fonction de rappel asynchrone exécutée lors de l'appel de l'action
 		 */
-		actionDefinitions[`down${i + 1}`] = {
-			name: `Raz${String(i + 1).padStart(2, '0')}`,
+		actionDefinitions[`down${bit}`] = {
+			name: `${label} set off`,
+			description: `Sets GPIO ${bit} off. Other GPIOs are left unchanged.`,
 			options: [],
 			callback: async () => {
 				const gpioBytesDown = Buffer.alloc(4)
-				const msgDown = buildInpFrame(gpioBytesDown, encodeBit(i + 1))
+				const msgDown = buildInpFrame(gpioBytesDown, encodeBit(bit))
 
 				this.networkManager.sendGpioCommand(msgDown)
 				this.log(
 					'info',
-					`"Set GPIO bit ${i + 1} DOWN" sent to ${this.config.host}:${this.config.port} (GPIO=${this.byteToBinaryString(gpioBytesDown)})`,
+					`"Set GPIO bit ${bit} DOWN" sent to ${this.config.host}:${this.config.port} (GPIO=${bytesToBinaryString(gpioBytesDown)})`,
 				)
 			},
 		}

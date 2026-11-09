@@ -5,12 +5,12 @@
  */
 
 /**
- * Fonction asynchrone qui définit les feedbacks pour les états des GPIO.
- * Cette fonction est exportée et sera probablement appelée lors de l'initialisation du module.
+ * Fonction qui définit les feedbacks pour les états des GPIO.
+ * Cette fonction est exportée et sera appelée lors de l'initialisation du module.
  *
- * @returns {Promise<void>}
+ * @returns {void}
  */
-export default async function () {
+export default function () {
 	const feedbackDefinitions = {}
 
 	/**
@@ -31,18 +31,18 @@ export default async function () {
 		feedbackDefinitions[`gpio_state_bit_${i + 1}`] = {
 			type: 'advanced',
 			name: `Gpio${String(i + 1).padStart(2, '0')}`,
-			description: `indicates the state of output ${i + 1} (0 deactivated, 1 activated)`,
+			description: `Sets the button background color from the state of GPIO ${i + 1} (off / on)`,
 			affectedProperties: ['bgcolor'],
 			options: [
 				{
 					type: 'colorpicker',
-					label: 'Couleur de fond rouge (désactivé)',
+					label: 'Background color when off',
 					id: 'colorOff',
 					default: this.colors.red,
 				},
 				{
 					type: 'colorpicker',
-					label: 'Couleur de fond vert (activé)',
+					label: 'Background color when on',
 					id: 'colorOn',
 					default: this.colors.green,
 				},

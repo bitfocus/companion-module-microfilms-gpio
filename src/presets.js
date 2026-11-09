@@ -6,7 +6,7 @@
 /**
  * Fonction principale qui génère et définit les préréglages pour les actions GPIO.
  * Cette fonction est exportée et sera probablement appelée lors de l'initialisation du module.
- * API 2.x : les presets sont de type `simple` et regroupés dans une section « Divers ».
+ * API 2.x : les presets sont de type `simple` et regroupés dans une section « GPIO ».
  *
  * @returns {void}
  */
@@ -75,7 +75,7 @@ export default function () {
 		 */
 		presetDefinitions[`towStates${i + 1}`] = {
 			type: 'simple',
-			name: `Tow states ${i + 1} button`,
+			name: `Two states ${i + 1} button`,
 			style: {
 				text: `TS ${i + 1}`,
 				size: 12,
@@ -111,12 +111,12 @@ export default function () {
 	}
 
 	/**
-	 * Structure des presets : une seule section « Divers » listant tous les identifiants
+	 * Structure des presets : une seule section « GPIO » listant tous les identifiants
 	 */
 	const presetStructure = [
 		{
-			id: 'divers',
-			name: 'Divers',
+			id: 'gpio',
+			name: 'GPIO',
 			definitions: Object.keys(presetDefinitions),
 		},
 	]

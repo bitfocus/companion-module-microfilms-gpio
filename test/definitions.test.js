@@ -99,11 +99,13 @@ nodeTest.describe('entrypoint ESM main.js', () => {
 nodeTest.describe('manifest companion/manifest.json', () => {
 	const manifest = readJson('companion/manifest.json')
 
-	nodeTest('déclare une connexion API 2.x sur node26', () => {
+	nodeTest('déclare une connexion API 2.x sur node26, entrypoint src/main.js', () => {
 		assert.equal(manifest.type, 'connection')
 		assert.equal(manifest.runtime.type, 'node26')
 		assert.equal(manifest.runtime.api, 'nodejs-ipc')
+		assert.equal(manifest.runtime.entrypoint, '../src/main.js')
 		assert.ok(fs.existsSync(path.join(appDir, 'companion', manifest.runtime.entrypoint)))
+		assert.equal(readJson('package.json').main, 'src/main.js')
 	})
 
 	nodeTest('aligne apiVersion et version sur les package.json', () => {
@@ -148,6 +150,19 @@ nodeTest.describe('presets.js (API 2.x)', () => {
 		assert.ok(Array.isArray(referenced))
 		assert.deepEqual([...referenced].sort(), Object.keys(presets).sort())
 	})
+
+	nodeTest('section « GPIO », presets « Two states n button », textes et couleurs inchangés', () => {
+		const [[structure, presets]] = capturePresets()
+		assert.equal(structure.length, 1)
+		assert.equal(structure[0].name, 'GPIO')
+		assert.equal(presets.towStates5.name, 'Two states 5 button')
+		assert.equal(presets.towStates5.style.text, 'TS 5')
+		assert.equal(presets.impulse5.style.text, 'IMP 5')
+		for (const preset of Object.values(presets)) {
+			assert.equal(preset.style.bgcolor, colors.black)
+			assert.deepEqual(preset.feedbacks[0].options, { colorOff: colors.black, colorOn: colors.green })
+		}
+	})
 })
 
 nodeTest.describe('feedbacks.js (API 2.x)', () => {
@@ -164,6 +179,16 @@ nodeTest.describe('feedbacks.js (API 2.x)', () => {
 			assert.ok(optionIds.includes('colorOn'), `${id} : colorOn`)
 		}
 	})
+
+	nodeTest('options en anglais, défauts rouge / vert', async () => {
+		const defs = await captureFeedbacks()
+		const [colorOff, colorOn] = defs.gpio_state_bit_5.options
+		assert.equal(defs.gpio_state_bit_5.name, 'Gpio05')
+		assert.equal(colorOff.label, 'Background color when off')
+		assert.equal(colorOff.default, colors.red)
+		assert.equal(colorOn.label, 'Background color when on')
+		assert.equal(colorOn.default, colors.green)
+	})
 })
 
 nodeTest.describe('variables.js (API 2.x)', () => {
@@ -177,5 +202,7 @@ nodeTest.describe('variables.js (API 2.x)', () => {
 		for (const [id, def] of Object.entries(defs)) {
 			assert.equal(typeof def.name, 'string', `${id} : name`)
 		}
+		assert.equal(defs['05'].name, 'Gpio05')
+		assert.equal(defs.Full.name, 'GPIO Full (Little Endian)')
 	})
 })

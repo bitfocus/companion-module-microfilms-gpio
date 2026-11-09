@@ -84,9 +84,38 @@ nodeTest.describe('NetworkManager UDP local', () => {
 
 		try {
 			const [reason] = await onceEvent(nm, 'connectionFailure', 1000)
-			assert.equal(reason, 'Incorrect header in "Status" response')
+			assert.equal(reason, 'Incorrect header or length in "Status" response')
 		} finally {
 			nm.destroy()
+			await new Promise((resolve) => server.close(resolve))
+		}
+	})
+
+	nodeTest('OUT court → événement connectionFailure, pas de throw', async () => {
+		const { server, port } = await bindEphemeral()
+		server.on('message', (msg, rinfo) => {
+			server.send(Buffer.from([0x4f, 0x55, 0x54, 0x01, 0x02, 0x03]), rinfo.port, rinfo.address)
+		})
+
+		const nm = new NetworkManager({ host: '127.0.0.1', port }, silentLog, Buffer.from('INP'), Buffer.alloc(4))
+
+		try {
+			const [reason] = await onceEvent(nm, 'connectionFailure', 1000)
+			assert.equal(reason, 'Incorrect header or length in "Status" response')
+		} finally {
+			nm.destroy()
+			await new Promise((resolve) => server.close(resolve))
+		}
+	})
+
+	nodeTest('sendGpioCommand après destroy : ignoré sans exception', async () => {
+		const { server, port } = await bindEphemeral()
+		const nm = new NetworkManager({ host: '127.0.0.1', port }, silentLog, Buffer.from('INP'), Buffer.alloc(4))
+		nm.destroy()
+		try {
+			assert.doesNotThrow(() => nm.sendGpioCommand(buildInpFrame(encodeBit(1), encodeBit(1))))
+			assert.doesNotThrow(() => nm.sendGpioPing())
+		} finally {
 			await new Promise((resolve) => server.close(resolve))
 		}
 	})

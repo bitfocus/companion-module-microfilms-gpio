@@ -14,7 +14,13 @@
 
 import dgram from 'node:dgram'
 import EventEmitter from 'node:events'
-import { buildPingFrame, parseOutFrame, PING_INTERVAL_MS, RECEPTION_TIMEOUT_MS } from './protocol.js'
+import {
+	buildPingFrame,
+	bytesToBinaryString,
+	parseOutFrame,
+	PING_INTERVAL_MS,
+	RECEPTION_TIMEOUT_MS,
+} from './protocol.js'
 
 /**
  * Classe représentant le gestionnaire de réseau pour les commandes GPIO.
@@ -22,8 +28,8 @@ import { buildPingFrame, parseOutFrame, PING_INTERVAL_MS, RECEPTION_TIMEOUT_MS }
  */
 class NetworkManager extends EventEmitter {
 	/**
-	 * Crée une instance de NetworkManager.
-	 * @param {Object} config - La configuration réseau.
+	 * Crée une instance de NetworkManager et démarre le ping.
+	 * @param {Object} config - La configuration réseau (`host`, `port`).
 	 * @param {Function} log - La fonction de journalisation.
 	 */
 	constructor(config, log, setGpioHeader, gpioBytes) {
@@ -44,6 +50,8 @@ class NetworkManager extends EventEmitter {
 
 	/**
 	 * Configure la réception des messages UDP.
+	 * @fires NetworkManager#gpioStatus
+	 * @fires NetworkManager#connectionFailure
 	 * @returns {void}
 	 */
 	configureReception() {
@@ -65,18 +73,19 @@ class NetworkManager extends EventEmitter {
 				this.waitingForStatusResponse = false
 				this.emit('gpioStatus', this.gpioBytes)
 				this.log(
-					'info',
-					`"Status" response from ${rinfo.address}:${rinfo.port} (GPIO=${this.byteToBinaryString(this.gpioBytes)})`,
+					'debug',
+					`"Status" response from ${rinfo.address}:${rinfo.port} (GPIO=${bytesToBinaryString(this.gpioBytes)})`,
 				)
 			} else {
-				this.emit('connectionFailure', 'Incorrect header in "Status" response')
-				this.log('error', 'Incorrect header in "Status" response')
+				this.emit('connectionFailure', 'Incorrect header or length in "Status" response')
+				this.log('error', 'Incorrect header or length in "Status" response')
 			}
 		})
 	}
 
 	/**
 	 * Surveille la réception des réponses du serveur.
+	 * @fires NetworkManager#noResponse
 	 * @returns {void}
 	 */
 	receptionWatcher() {
@@ -90,56 +99,58 @@ class NetworkManager extends EventEmitter {
 	}
 
 	/**
-	 * Envoie un ping GPIO au serveur.
+	 * Envoie un ping GPIO au serveur, puis se reprogramme après l'intervalle de ping.
+	 * @fires NetworkManager#sendError
 	 * @returns {void}
 	 */
 	sendGpioPing() {
+		if (!this.udpClient) {
+			return
+		}
 		if (!this.waitingForStatusResponse) {
 			this.udpClient.send(this.pingMessage, this.config.port, this.config.host, (err) => {
+				if (!this.udpClient) {
+					return
+				}
 				if (err) {
 					this.emit('sendError', err)
 					this.log('error', `Error sending "Set GPIO" command: ${err}`)
 				} else {
 					this.waitingForStatusResponse = true
 					this.receptionWatcher()
-					this.log('info', 'Command "Set GPIO PING" sent successfully.')
+					this.log('debug', 'Command "Set GPIO PING" sent successfully.')
 				}
 			})
 		}
 		// Rappeler cette fonction après l'intervalle défini
 		this.sendGpioPingId = setTimeout(() => {
-			this.log('info', 'Sending ping')
 			this.sendGpioPing()
 		}, this.pingInterval)
 	}
 
 	/**
-	 * Convertit un octet en une chaîne binaire de 8 bits.
-	 * @param {Buffer} gpioBytes - Les octets GPIO à convertir.
-	 * @returns {string} La chaîne binaire.
+	 * Envoie une trame INP au serveur. Sans effet si le gestionnaire est détruit.
+	 * @param {Buffer} gpioBytes - La trame INP complète à envoyer.
+	 * @fires NetworkManager#sendError
+	 * @returns {void}
 	 */
-	byteToBinaryString(gpioBytes) {
-		function byteToBinaryString(byte) {
-			return byte.toString(2).padStart(8, '0') // Conversion en binaire et ajout de zéros à gauche si nécessaire
-		}
-
-		// Inversion des octets de gpioBytes, puis conversion de chaque octet en binaire
-		return Array.from(gpioBytes).reverse().map(byteToBinaryString).join(' ')
-	}
-
 	sendGpioCommand(gpioBytes) {
+		if (!this.udpClient) {
+			this.log('debug', 'NetworkManager destroyed: "Set GPIO" command dropped')
+			return
+		}
 		this.udpClient.send(gpioBytes, this.config.port, this.config.host, (err) => {
 			if (err) {
 				this.emit('sendError', err)
 				this.log('error', `Error sending "Set GPIO" command: ${err}`)
 			} else {
-				this.log('info', 'Command "Set GPIO Command" sent successfully.')
+				this.log('debug', 'Command "Set GPIO Command" sent successfully.')
 			}
 		})
 	}
 
 	/**
-	 * Détruit le gestionnaire de réseau.
+	 * Détruit le gestionnaire de réseau : arrête le ping, la surveillance et ferme le socket.
 	 * @returns {void}
 	 */
 	destroy() {

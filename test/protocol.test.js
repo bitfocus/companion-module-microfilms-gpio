@@ -19,6 +19,7 @@ import {
 	encodeBit,
 	bitByteIndex,
 	bitBitMask,
+	bytesToBinaryString,
 } from '../src/protocol.js'
 
 nodeTest.describe('indexation bit 1–32', () => {
@@ -108,6 +109,11 @@ nodeTest.describe('trames OUT', () => {
 		const frame = Buffer.concat([Buffer.from('INP'), Buffer.from([1, 2, 3, 4])])
 		assert.equal(parseOutFrame(frame), null)
 	})
+
+	nodeTest('OUT court : en-tête OUT + moins de 4 octets → null', () => {
+		assert.equal(parseOutFrame(Buffer.concat([Buffer.from(OUT_HEADER), Buffer.from([1, 2, 3])])), null)
+		assert.equal(parseOutFrame(Buffer.from(OUT_HEADER)), null)
+	})
 })
 
 nodeTest.describe('parseInpFrame', () => {
@@ -121,5 +127,16 @@ nodeTest.describe('parseInpFrame', () => {
 
 	nodeTest('rejette un en-tête autre que INP', () => {
 		assert.equal(parseInpFrame(buildOutFrame(Buffer.alloc(4))), null)
+	})
+
+	nodeTest('INP court : en-tête INP + moins de 8 octets → null', () => {
+		assert.equal(parseInpFrame(Buffer.concat([Buffer.from(INP_HEADER), Buffer.alloc(7)])), null)
+		assert.ok(parseInpFrame(Buffer.concat([Buffer.from(INP_HEADER), Buffer.alloc(8)])))
+	})
+})
+
+nodeTest.describe('bytesToBinaryString', () => {
+	nodeTest('octet de poids fort en tête : bit 32 à gauche, bit 1 à droite', () => {
+		assert.equal(bytesToBinaryString(Buffer.from([0x01, 0x00, 0x00, 0x80])), '10000000 00000000 00000000 00000001')
 	})
 })

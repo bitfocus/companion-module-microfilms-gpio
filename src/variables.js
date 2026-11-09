@@ -5,13 +5,14 @@
  */
 
 /**
- * Fonction asynchrone qui définit les variables d'état pour les GPIO.
- * Cette fonction est exportée et sera probablement appelée lors de l'initialisation du module.
+ * Fonction qui définit les variables d'état pour les GPIO.
+ * Cette fonction est exportée et sera appelée lors de l'initialisation du module.
  * API 2.x : les définitions forment un objet indexé par identifiant de variable.
+ * Les valeurs sont publiées par `ModuleInstance#handleGpioStatus` (`01`…`32` = 0/1, `Full` = entier 32 bits).
  *
- * @returns {Promise<void>}
+ * @returns {void}
  */
-export default async function () {
+export default function () {
 	const variableDefinitions = {}
 
 	/**
