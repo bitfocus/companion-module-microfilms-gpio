@@ -120,6 +120,22 @@ nodeTest.describe('NetworkManager UDP local', () => {
 		}
 	})
 
+	nodeTest('sendGpioCommand : promesse résolue et sendError émis si l’envoi échoue', async () => {
+		const { server, port } = await bindEphemeral()
+		const nm = new NetworkManager({ host: '127.0.0.1', port }, silentLog, Buffer.from('INP'), Buffer.alloc(4))
+		try {
+			const failure = new Error('send failed')
+			nm.udpClient.send = (msg, targetPort, host, callback) => callback(failure)
+			const sendError = onceEvent(nm, 'sendError', 1000)
+			await nm.sendGpioCommand(buildInpFrame(encodeBit(1), encodeBit(1)))
+			const [err] = await sendError
+			assert.equal(err, failure)
+		} finally {
+			nm.destroy()
+			await new Promise((resolve) => server.close(resolve))
+		}
+	})
+
 	nodeTest('silence après ping → noResponse au bout de ~3 s', { timeout: 10000 }, async () => {
 		const { server, port } = await bindEphemeral()
 		const nm = new NetworkManager({ host: '127.0.0.1', port }, silentLog, Buffer.from('INP'), Buffer.alloc(4))

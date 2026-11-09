@@ -265,7 +265,31 @@ nodeTest.describe('ModuleInstance config et cycle de vie', () => {
 		await assertPulseDownFlushed((instance) => instance.destroy())
 	})
 
-	nodeTest('Impulse puis configUpdated < 100 ms : DOWN envoyé une fois, sans attendre', { timeout: 3000 }, async () => {
-		await assertPulseDownFlushed((instance, port) => instance.configUpdated({ host: '127.0.0.1', port: String(port) }))
-	})
+	nodeTest(
+		'Impulse puis configUpdated < 100 ms : DOWN envoyé une fois à l’ancienne cible',
+		{ timeout: 3000 },
+		async () => {
+			const { instance, calls } = createModule()
+			const a = await startServer(Buffer.alloc(4))
+			const b = await startServer(Buffer.alloc(4))
+			const isDown = (f) => f.maskBytes[0] === 0x01 && f.gpioBytes[0] === 0x00
+			try {
+				await instance.init({ host: '127.0.0.1', port: String(a.port) }, true, {})
+				const pulsedAt = Date.now()
+				await calls.definitions.actions.impulse1.callback()
+				await instance.configUpdated({ host: '127.0.0.1', port: String(b.port) })
+				assert.equal(instance.impulseTimers.size, 0)
+				await waitFor(() => a.received.some(isDown), 50, 'DOWN envoyé à l’ancienne cible')
+				const [down] = a.received.filter(isDown)
+				assert.ok(down.at - pulsedAt < IMPULSE_DELAY_MS / 2, `DOWN tardif (${down.at - pulsedAt} ms)`)
+				await new Promise((resolve) => setTimeout(resolve, IMPULSE_DELAY_MS + 50))
+				assert.equal(a.received.filter(isDown).length, 1)
+				assert.equal(b.received.filter(isDown).length, 0)
+			} finally {
+				await instance.destroy()
+				await a.close()
+				await b.close()
+			}
+		},
+	)
 })
