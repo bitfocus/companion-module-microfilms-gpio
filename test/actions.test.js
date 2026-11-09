@@ -21,7 +21,7 @@ function bindActions() {
 			},
 		},
 		log() {},
-		impulseTimers: new Set(),
+		impulseTimers: new Map(),
 		setActionDefinitions(definitions) {
 			Object.assign(defs, definitions)
 		},

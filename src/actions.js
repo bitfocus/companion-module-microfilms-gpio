@@ -12,7 +12,8 @@ import { buildImpulseFrames, buildInpFrame, bytesToBinaryString, encodeBit, IMPU
 /**
  * Fonction principale qui définit et configure les actions pour le contrôle des GPIO.
  * Cette fonction est exportée et sera appelée lors de l'initialisation du module.
- * Les DOWN différés des impulsions sont suivis dans `this.impulseTimers` pour être annulés à l'arrêt.
+ * Les DOWN différés des impulsions sont suivis dans `this.impulseTimers` (timer → trame DOWN)
+ * pour être envoyés sans attendre à l'arrêt ou au changement de configuration.
  *
  * @returns {void}
  */
@@ -46,7 +47,7 @@ export default function () {
 					this.impulseTimers.delete(timer)
 					this.networkManager.sendGpioCommand(down)
 				}, IMPULSE_DELAY_MS)
-				this.impulseTimers.add(timer)
+				this.impulseTimers.set(timer, down)
 				this.log(
 					'info',
 					`"Set GPIO bit ${bit} UP" sent to ${this.config.host}:${this.config.port} (GPIO=${bytesToBinaryString(gpioBytesUp)})`,

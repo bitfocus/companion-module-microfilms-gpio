@@ -51,7 +51,7 @@ function startServer(gpioBytes) {
 	server.on('message', (msg, rinfo) => {
 		const parsed = parseInpFrame(msg)
 		if (parsed) {
-			received.push(parsed)
+			received.push({ ...parsed, at: Date.now() })
 		}
 		server.send(buildOutFrame(gpioBytes), rinfo.port, rinfo.address)
 	})
@@ -197,16 +197,19 @@ nodeTest.describe('ModuleInstance config et cycle de vie', () => {
 				assert.equal(calls.status.at(-1), InstanceStatus.Ok)
 
 				const firstNetworkManager = instance.networkManager
+				let statusCount = calls.status.length
 				await instance.configUpdated({ host: '127.0.0.1', port: String(b.port) })
 				assert.notEqual(instance.networkManager, firstNetworkManager)
 				assert.equal(firstNetworkManager.listenerCount('gpioStatus'), 0)
-				assert.ok(calls.status.includes(InstanceStatus.Connecting))
+				assert.equal(calls.status[statusCount], InstanceStatus.Connecting)
 				await waitFor(() => calls.variables.length === 2, 2000, 'statut après changement de port (B)')
 				assert.equal(calls.variables[1]['05'], 0)
 				assert.equal(calls.variables[1].Full, 0)
 				assert.equal(calls.status.at(-1), InstanceStatus.Ok)
 
+				statusCount = calls.status.length
 				await instance.configUpdated({ host: '127.0.0.1', port: String(a.port) })
+				assert.equal(calls.status[statusCount], InstanceStatus.Connecting)
 				await waitFor(() => calls.variables.length === 3, 2000, 'statut après retour au port A')
 				assert.equal(calls.variables[2]['05'], 1)
 				assert.equal(calls.status.at(-1), InstanceStatus.Ok)
@@ -218,37 +221,51 @@ nodeTest.describe('ModuleInstance config et cycle de vie', () => {
 		},
 	)
 
-	nodeTest('Impulse puis destroy < 100 ms : DOWN annulé, aucune exception', { timeout: 3000 }, async () => {
-		const { instance, calls } = createModule()
+	nodeTest('hôte vide : repli sur 192.168.10.10 à init et à configUpdated', async () => {
+		const { instance } = createModule()
 		const server = await startServer(Buffer.alloc(4))
 		try {
-			await instance.init({ host: '127.0.0.1', port: String(server.port) }, true, {})
-			await calls.definitions.actions.impulse1.callback()
-			assert.equal(instance.impulseTimers.size, 1)
-			await instance.destroy()
-			assert.equal(instance.impulseTimers.size, 0)
-			await new Promise((resolve) => setTimeout(resolve, IMPULSE_DELAY_MS + 50))
-			const downs = server.received.filter((f) => f.maskBytes[0] === 0x01 && f.gpioBytes[0] === 0x00)
-			assert.equal(downs.length, 0)
+			await instance.init({ host: '', port: String(server.port) }, true, {})
+			assert.equal(instance.config.host, '192.168.10.10')
+			await instance.configUpdated({ host: '', port: String(server.port) })
+			assert.equal(instance.config.host, '192.168.10.10')
 		} finally {
+			await instance.destroy()
 			await server.close()
 		}
 	})
 
-	nodeTest('Impulse puis configUpdated < 100 ms : DOWN annulé, aucune exception', { timeout: 3000 }, async () => {
+	/**
+	 * Lance une impulsion bit 1, appelle stop() avant les 100 ms, puis vérifie que le DOWN
+	 * (GPIO 0, masque bit 1) arrive une seule fois, bien avant le délai d'impulsion.
+	 */
+	async function assertPulseDownFlushed(stop) {
 		const { instance, calls } = createModule()
 		const server = await startServer(Buffer.alloc(4))
+		const isDown = (f) => f.maskBytes[0] === 0x01 && f.gpioBytes[0] === 0x00
 		try {
 			await instance.init({ host: '127.0.0.1', port: String(server.port) }, true, {})
+			const pulsedAt = Date.now()
 			await calls.definitions.actions.impulse1.callback()
-			await instance.configUpdated({ host: '127.0.0.1', port: String(server.port) })
+			assert.equal(instance.impulseTimers.size, 1)
+			await stop(instance, server.port)
 			assert.equal(instance.impulseTimers.size, 0)
+			await waitFor(() => server.received.some(isDown), 50, 'DOWN envoyé à l’arrêt')
+			const [down] = server.received.filter(isDown)
+			assert.ok(down.at - pulsedAt < IMPULSE_DELAY_MS / 2, `DOWN tardif (${down.at - pulsedAt} ms)`)
 			await new Promise((resolve) => setTimeout(resolve, IMPULSE_DELAY_MS + 50))
-			const downs = server.received.filter((f) => f.maskBytes[0] === 0x01 && f.gpioBytes[0] === 0x00)
-			assert.equal(downs.length, 0)
+			assert.equal(server.received.filter(isDown).length, 1)
 		} finally {
 			await instance.destroy()
 			await server.close()
 		}
+	}
+
+	nodeTest('Impulse puis destroy < 100 ms : DOWN envoyé une fois, sans attendre', { timeout: 3000 }, async () => {
+		await assertPulseDownFlushed((instance) => instance.destroy())
+	})
+
+	nodeTest('Impulse puis configUpdated < 100 ms : DOWN envoyé une fois, sans attendre', { timeout: 3000 }, async () => {
+		await assertPulseDownFlushed((instance, port) => instance.configUpdated({ host: '127.0.0.1', port: String(port) }))
 	})
 })

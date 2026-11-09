@@ -72,7 +72,7 @@ class ModuleInstance extends InstanceBase {
 		this.setGpioHeader = Buffer.from('INP')
 		this.gpioBytes = Buffer.alloc(4) // Dernier état GPIO connu (lu par les feedbacks)
 		this.lastGpioBytes = null // Dernier état publié dans les variables et feedbacks
-		this.impulseTimers = new Set() // DOWN différés des impulsions en attente
+		this.impulseTimers = new Map() // DOWN différés des impulsions en attente (timer → trame DOWN)
 
 		initActions.call(this) // export actions
 		initFeedbacks.call(this) // export feedbacks
@@ -155,17 +155,23 @@ class ModuleInstance extends InstanceBase {
 	}
 
 	/**
-	 * Annule les DOWN différés des impulsions en attente.
-	 * @returns {void}
+	 * Envoie sans attendre les DOWN différés des impulsions en attente, pour ne pas laisser
+	 * un bit à 1 sur le robot, puis attend leur émission avant que le socket ne soit fermé.
+	 * @returns {Promise<void>}
 	 */
-	clearImpulseTimers() {
-		if (!this.impulseTimers) {
+	async flushImpulseTimers() {
+		if (!this.impulseTimers?.size) {
 			return
 		}
-		for (const timer of this.impulseTimers) {
+		const pending = []
+		for (const [timer, down] of this.impulseTimers) {
 			clearTimeout(timer)
+			if (this.networkManager) {
+				pending.push(this.networkManager.sendGpioCommand(down))
+			}
 		}
 		this.impulseTimers.clear()
+		await Promise.all(pending)
 	}
 
 	/**
@@ -174,7 +180,7 @@ class ModuleInstance extends InstanceBase {
 	 */
 	async destroy() {
 		this.log('debug', 'destroy')
-		this.clearImpulseTimers()
+		await this.flushImpulseTimers()
 		if (this.networkManager) {
 			this.networkManager.removeAllListeners()
 			this.networkManager.destroy()
@@ -188,7 +194,7 @@ class ModuleInstance extends InstanceBase {
 	 * @returns {Promise<void>}
 	 */
 	async configUpdated(config) {
-		this.clearImpulseTimers()
+		await this.flushImpulseTimers()
 		this.createNetworkManager(config)
 		this.log('info', 'Config updated')
 	}

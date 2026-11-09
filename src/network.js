@@ -132,20 +132,23 @@ class NetworkManager extends EventEmitter {
 	 * Envoie une trame INP au serveur. Sans effet si le gestionnaire est détruit.
 	 * @param {Buffer} gpioBytes - La trame INP complète à envoyer.
 	 * @fires NetworkManager#sendError
-	 * @returns {void}
+	 * @returns {Promise<void>} Résolue quand l'envoi est terminé, en succès comme en erreur.
 	 */
 	sendGpioCommand(gpioBytes) {
 		if (!this.udpClient) {
 			this.log('debug', 'NetworkManager destroyed: "Set GPIO" command dropped')
-			return
+			return Promise.resolve()
 		}
-		this.udpClient.send(gpioBytes, this.config.port, this.config.host, (err) => {
-			if (err) {
-				this.emit('sendError', err)
-				this.log('error', `Error sending "Set GPIO" command: ${err}`)
-			} else {
-				this.log('debug', 'Command "Set GPIO Command" sent successfully.')
-			}
+		return new Promise((resolve) => {
+			this.udpClient.send(gpioBytes, this.config.port, this.config.host, (err) => {
+				if (err) {
+					this.emit('sendError', err)
+					this.log('error', `Error sending "Set GPIO" command: ${err}`)
+				} else {
+					this.log('debug', 'Command "Set GPIO Command" sent successfully.')
+				}
+				resolve()
+			})
 		})
 	}
 
