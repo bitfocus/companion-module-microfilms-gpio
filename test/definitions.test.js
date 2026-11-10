@@ -1,6 +1,6 @@
 /**
- * Fige l'entrypoint ESM, le manifest et les formes API 2.x des définitions
- * (presets, feedbacks, variables) sans lancer Companion.
+ * Freezes the ESM entrypoint, the manifest and the API 2.x shapes of the definitions
+ * (actions, presets, feedback, variables) without starting Companion.
  */
 
 import nodeTest from 'node:test'
@@ -17,24 +17,28 @@ import initVariables from '../src/variables.js'
 const appDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
 /**
- * Lit un fichier JSON du module.
+ * Reads a JSON file of the module.
  */
 function readJson(relativePath) {
 	return JSON.parse(fs.readFileSync(path.join(appDir, relativePath), 'utf8'))
 }
 
 /**
- * Couleurs identiques à celles définies dans main.js.
+ * Same colors as in main.js.
  */
 const colors = {
 	white: combineRgb(255, 255, 255),
 	black: combineRgb(0, 0, 0),
 	green: combineRgb(0, 200, 0),
-	red: combineRgb(200, 0, 0),
 }
 
 /**
- * Lie actions.js à un contexte factice et capture les définitions.
+ * Expected definition of the `gpio` option.
+ */
+const GPIO_OPTION = { type: 'number', id: 'gpio', label: 'GPIO', min: 1, max: 32, default: 1, asInteger: true }
+
+/**
+ * Binds actions.js to a fake context and captures the definitions.
  */
 function captureActions() {
 	const defs = {}
@@ -47,11 +51,11 @@ function captureActions() {
 }
 
 /**
- * Lie feedbacks.js à un contexte factice et capture les définitions.
+ * Binds feedbacks.js to a fake context and captures the definitions.
  */
-async function captureFeedbacks() {
+function captureFeedbacks() {
 	const defs = {}
-	await initFeedbacks.call({
+	initFeedbacks.call({
 		colors,
 		setFeedbackDefinitions(d) {
 			Object.assign(defs, d)
@@ -61,7 +65,7 @@ async function captureFeedbacks() {
 }
 
 /**
- * Lie presets.js à un contexte factice et capture structure + presets.
+ * Binds presets.js to a fake context and captures structure + presets.
  */
 function capturePresets() {
 	const calls = []
@@ -75,11 +79,11 @@ function capturePresets() {
 }
 
 /**
- * Lie variables.js à un contexte factice et capture l'argument transmis.
+ * Binds variables.js to a fake context and captures the argument passed.
  */
-async function captureVariables() {
+function captureVariables() {
 	let received
-	await initVariables.call({
+	initVariables.call({
 		setVariableDefinitions(d) {
 			received = d
 		},
@@ -87,19 +91,20 @@ async function captureVariables() {
 	return received
 }
 
-nodeTest.describe('entrypoint ESM main.js', () => {
-	nodeTest('exporte la classe module par défaut et UpgradeScripts', async () => {
+nodeTest.describe('ESM entrypoint main.js', () => {
+	nodeTest('exports the module class as default, and UpgradeScripts', async () => {
 		const mod = await import('../src/main.js')
 		assert.equal(typeof mod.default, 'function')
 		assert.ok(mod.default.prototype instanceof InstanceBase)
 		assert.ok(Array.isArray(mod.UpgradeScripts))
+		assert.equal(mod.UpgradeScripts.length, 1)
 	})
 })
 
 nodeTest.describe('manifest companion/manifest.json', () => {
 	const manifest = readJson('companion/manifest.json')
 
-	nodeTest('déclare une connexion API 2.x sur node26, entrypoint src/main.js', () => {
+	nodeTest('declares an API 2.x connection on node26, entrypoint src/main.js', () => {
 		assert.equal(manifest.type, 'connection')
 		assert.equal(manifest.runtime.type, 'node26')
 		assert.equal(manifest.runtime.api, 'nodejs-ipc')
@@ -108,16 +113,31 @@ nodeTest.describe('manifest companion/manifest.json', () => {
 		assert.equal(readJson('package.json').main, 'src/main.js')
 	})
 
-	nodeTest('aligne apiVersion et version sur les package.json', () => {
-		const base = readJson('node_modules/@companion-module/base/package.json')
-		const pkg = readJson('package.json')
-		assert.equal(manifest.runtime.apiVersion, base.version)
-		assert.equal(manifest.version, pkg.version)
+	nodeTest('aligns version with package.json, lists products and keywords', () => {
+		assert.equal(manifest.version, readJson('package.json').version)
+		assert.deepEqual(manifest.products, ['GPIO'])
+		assert.deepEqual(manifest.keywords, ['gpio', 'relay', 'udp', 'stage machinery'])
+	})
+})
+
+nodeTest.describe('actions.js (API 2.x)', () => {
+	nodeTest('3 actions pulse / set_on / set_off, each with the gpio option', () => {
+		const defs = captureActions()
+		assert.deepEqual(Object.keys(defs).sort(), ['pulse', 'set_off', 'set_on'])
+		assert.equal(defs.pulse.name, 'GPIO pulse')
+		assert.equal(defs.set_on.name, 'GPIO set on')
+		assert.equal(defs.set_off.name, 'GPIO set off')
+		for (const [id, def] of Object.entries(defs)) {
+			assert.deepEqual(def.options, [GPIO_OPTION], `${id}: options`)
+			assert.equal(typeof def.description, 'string', `${id}: description`)
+			assert.ok(def.description.length > 0, `${id}: empty description`)
+			assert.equal(typeof def.callback, 'function', `${id}: callback`)
+		}
 	})
 })
 
 nodeTest.describe('presets.js (API 2.x)', () => {
-	nodeTest('appelle setPresetDefinitions(structure, presets) avec 64 presets simples', async () => {
+	nodeTest('calls setPresetDefinitions(structure, presets) with 64 simple presets', () => {
 		const calls = capturePresets()
 		assert.equal(calls.length, 1)
 		assert.equal(calls[0].length, 2)
@@ -129,80 +149,77 @@ nodeTest.describe('presets.js (API 2.x)', () => {
 		assert.deepEqual(Object.keys(presets).sort(), expectedIds.sort())
 
 		const actionIds = Object.keys(captureActions())
-		const feedbackIds = Object.keys(await captureFeedbacks())
+		const feedbackIds = Object.keys(captureFeedbacks())
 		for (const [id, preset] of Object.entries(presets)) {
-			assert.equal(preset.type, 'simple', `${id} : type`)
+			assert.equal(preset.type, 'simple', `${id}: type`)
 			for (const step of preset.steps) {
 				for (const entry of [...step.down, ...step.up]) {
-					assert.ok(actionIds.includes(entry.actionId), `${id} : actionId ${entry.actionId}`)
-					assert.equal(typeof entry.options, 'object', `${id} : options de ${entry.actionId}`)
-					assert.notEqual(entry.options, null)
+					assert.ok(actionIds.includes(entry.actionId), `${id}: actionId ${entry.actionId}`)
 				}
 			}
 			for (const fb of preset.feedbacks) {
-				assert.ok(feedbackIds.includes(fb.feedbackId), `${id} : feedbackId ${fb.feedbackId}`)
+				assert.ok(feedbackIds.includes(fb.feedbackId), `${id}: feedbackId ${fb.feedbackId}`)
 			}
 		}
 
 		assert.ok(Array.isArray(structure))
-		assert.ok(structure.length >= 1)
-		const referenced = structure[0].definitions
-		assert.ok(Array.isArray(referenced))
-		assert.deepEqual([...referenced].sort(), Object.keys(presets).sort())
+		assert.equal(structure.length, 1)
+		assert.deepEqual([...structure[0].definitions].sort(), Object.keys(presets).sort())
 	})
 
-	nodeTest('section « GPIO », presets « Two states n button », textes et couleurs inchangés', () => {
+	nodeTest('"GPIO" section, texts, black background, gpio option and green feedback style', () => {
 		const [[structure, presets]] = capturePresets()
-		assert.equal(structure.length, 1)
+		assert.equal(structure[0].id, 'gpio')
 		assert.equal(structure[0].name, 'GPIO')
-		assert.equal(presets.towStates5.name, 'Two states 5 button')
-		assert.equal(presets.towStates5.style.text, 'TS 5')
-		assert.equal(presets.impulse5.style.text, 'IMP 5')
-		for (const preset of Object.values(presets)) {
-			assert.equal(preset.style.bgcolor, colors.black)
-			assert.deepEqual(preset.feedbacks[0].options, { colorOff: colors.black, colorOn: colors.green })
+		for (let gpio = 1; gpio <= 32; gpio++) {
+			const impulse = presets[`impulse${gpio}`]
+			const twoStates = presets[`towStates${gpio}`]
+			assert.equal(impulse.style.text, `IMP ${gpio}`)
+			assert.equal(twoStates.style.text, `TS ${gpio}`)
+			assert.equal(twoStates.name, `Two states ${gpio} button`)
+			assert.deepEqual(impulse.steps, [{ down: [{ actionId: 'pulse', options: { gpio } }], up: [] }])
+			assert.deepEqual(twoStates.steps, [
+				{
+					down: [{ actionId: 'set_on', options: { gpio } }],
+					up: [{ actionId: 'set_off', options: { gpio } }],
+				},
+			])
+			for (const preset of [impulse, twoStates]) {
+				assert.equal(preset.style.bgcolor, colors.black)
+				assert.deepEqual(preset.feedbacks, [
+					{ feedbackId: 'gpio_state', options: { gpio }, style: { bgcolor: colors.green } },
+				])
+			}
 		}
 	})
 })
 
 nodeTest.describe('feedbacks.js (API 2.x)', () => {
-	nodeTest('32 feedbacks advanced avec affectedProperties et couleurs', async () => {
-		const defs = await captureFeedbacks()
-		const expected = []
-		for (let i = 1; i <= 32; i++) expected.push(`gpio_state_bit_${i}`)
-		assert.deepEqual(Object.keys(defs).sort(), expected.sort())
-		for (const [id, def] of Object.entries(defs)) {
-			assert.equal(def.type, 'advanced', `${id} : type`)
-			assert.ok(def.affectedProperties.includes('bgcolor'), `${id} : affectedProperties`)
-			const optionIds = def.options.map((o) => o.id)
-			assert.ok(optionIds.includes('colorOff'), `${id} : colorOff`)
-			assert.ok(optionIds.includes('colorOn'), `${id} : colorOn`)
-		}
-	})
-
-	nodeTest('options en anglais, défauts rouge / vert', async () => {
-		const defs = await captureFeedbacks()
-		const [colorOff, colorOn] = defs.gpio_state_bit_5.options
-		assert.equal(defs.gpio_state_bit_5.name, 'GPIO 05 state')
-		assert.equal(colorOff.label, 'Background color when off')
-		assert.equal(colorOff.default, colors.red)
-		assert.equal(colorOn.label, 'Background color when on')
-		assert.equal(colorOn.default, colors.green)
+	nodeTest('a single boolean feedback gpio_state, green by default, native inversion', () => {
+		const defs = captureFeedbacks()
+		assert.deepEqual(Object.keys(defs), ['gpio_state'])
+		const def = defs.gpio_state
+		assert.equal(def.type, 'boolean')
+		assert.equal(def.name, 'GPIO state')
+		assert.deepEqual(def.defaultStyle, { bgcolor: colors.green })
+		assert.notEqual(def.showInvert, false)
+		assert.deepEqual(def.options, [GPIO_OPTION])
+		assert.equal(def.affectedProperties, undefined)
 	})
 })
 
 nodeTest.describe('variables.js (API 2.x)', () => {
-	nodeTest('transmet un objet de 33 variables nommées', async () => {
-		const defs = await captureVariables()
+	nodeTest('passes an object of 33 named variables', () => {
+		const defs = captureVariables()
 		assert.equal(typeof defs, 'object')
 		assert.ok(!Array.isArray(defs))
 		const expected = ['Full']
 		for (let i = 1; i <= 32; i++) expected.push(String(i).padStart(2, '0'))
 		assert.deepEqual(Object.keys(defs).sort(), expected.sort())
 		for (const [id, def] of Object.entries(defs)) {
-			assert.equal(typeof def.name, 'string', `${id} : name`)
+			assert.equal(typeof def.name, 'string', `${id}: name`)
 		}
-		assert.equal(defs['05'].name, 'Gpio05')
-		assert.equal(defs.Full.name, 'GPIO Full (Little Endian)')
+		assert.equal(defs['05'].name, 'GPIO 05 state (0 = off, 1 = on)')
+		assert.equal(defs.Full.name, 'All GPIO states (32-bit integer, GPIO 1 = 1)')
 	})
 })

@@ -1,71 +1,46 @@
 /**
- * Ce fichier définit les feedbacks pour 32 bits GPIO.
- * Il génère dynamiquement des définitions de feedback pour chaque bit GPIO,
- * permettant de changer la couleur de fond en fonction de l'état du bit.
+ * Defines the `gpio_state` boolean feedback: true while the GPIO chosen in its `gpio` option is on.
+ * The style applied when true defaults to a green background; Companion provides the inversion.
+ *
+ * Required modules:
+ * - ./protocol (bit reading)
+ * - ./options (`gpio` option and its validation)
  */
 
+import { readBit } from './protocol.js'
+import { gpioOption, readGpioOption } from './options.js'
+
 /**
- * Fonction qui définit les feedbacks pour les états des GPIO.
- * Cette fonction est exportée et sera appelée lors de l'initialisation du module.
+ * Defines the GPIO state feedback.
+ * This function is called with the module instance as `this` at initialization.
+ * The callback reads the last GPIO state received from the robot (`this.gpioBytes`).
  *
  * @returns {void}
  */
 export default function () {
-	const feedbackDefinitions = {}
-
-	/**
-	 * Génère les définitions de feedback pour les 32 bits GPIO
-	 */
-	for (let i = 0; i < 32; i++) {
+	const feedbackDefinitions = {
 		/**
-		 * Définition d'un feedback pour un bit GPIO spécifique
-		 *
+		 * True when the GPIO is on in the last Status response.
 		 * @type {Object}
-		 * @property {string} type - Le type de feedback (avancé dans ce cas)
-		 * @property {string} name - Le nom descriptif du feedback
-		 * @property {string} description - La description du comportement du feedback
-		 * @property {Array<string>} affectedProperties - Les propriétés de style modifiées (API 2.x)
-		 * @property {Array} options - Les options configurables du feedback
-		 * @property {Function} callback - La fonction de rappel qui détermine l'état du feedback
 		 */
-		feedbackDefinitions[`gpio_state_bit_${i + 1}`] = {
-			type: 'advanced',
-			name: `GPIO ${String(i + 1).padStart(2, '0')} state`,
-			description: `Sets the button background color from the state of GPIO ${i + 1} (off / on)`,
-			affectedProperties: ['bgcolor'],
-			options: [
-				{
-					type: 'colorpicker',
-					label: 'Background color when off',
-					id: 'colorOff',
-					default: this.colors.red,
-				},
-				{
-					type: 'colorpicker',
-					label: 'Background color when on',
-					id: 'colorOn',
-					default: this.colors.green,
-				},
-			],
-			callback: (event) => {
-				// Récupérer l'octet correspondant et le bit dans this.gpioBytes
-				const byteIndex = Math.floor(i / 8) // Index de l'octet dans gpioBytes (0 à 3)
-				const bitIndex = i % 8 // Position du bit dans l'octet (0 à 7)
-
-				// Vérifier si le bit est activé (1) ou désactivé (0)
-				const isBitOn = (this.gpioBytes[byteIndex] & (1 << bitIndex)) !== 0
-
-				if (isBitOn) {
-					return { bgcolor: event.options.colorOn } // Si le bit est à 1, couleur verte
-				} else {
-					return { bgcolor: event.options.colorOff } // Si le bit est à 0, couleur rouge
-				}
+		gpio_state: {
+			type: 'boolean',
+			name: 'GPIO state',
+			description: 'True while the GPIO is on, from the last Status response of the robot.',
+			defaultStyle: {
+				bgcolor: this.colors.green,
 			},
-		}
+			showInvert: true,
+			options: [gpioOption],
+			callback: (feedback) => {
+				const bit = readGpioOption(feedback.options, this.log.bind(this), 'GPIO state')
+				if (bit === null) {
+					return false
+				}
+				return readBit(this.gpioBytes, bit) === 1
+			},
+		},
 	}
 
-	/**
-	 * Définit tous les feedbacks générés pour être utilisés par le système
-	 */
 	this.setFeedbackDefinitions(feedbackDefinitions)
 }

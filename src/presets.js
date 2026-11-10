@@ -1,12 +1,12 @@
 /**
- * Ce fichier définit les préréglages (presets) pour les actions "impulse" et "two states" sur 32 bits GPIO.
- * Il génère des boutons pour chaque bit, avec des styles et des actions prédéfinis.
+ * Defines the "Impulse" and "Two states" button presets for the 32 GPIOs.
+ * Each preset uses the shared actions and feedback with its GPIO in the `gpio` option.
  */
 
 /**
- * Fonction principale qui génère et définit les préréglages pour les actions GPIO.
- * Cette fonction est exportée et sera probablement appelée lors de l'initialisation du module.
- * API 2.x : les presets sont de type `simple` et regroupés dans une section « GPIO ».
+ * Builds and sets the button presets, in a single "GPIO" section.
+ * This function is called with the module instance as `this` at initialization.
+ * API 2.x: the presets are of type `simple`.
  *
  * @returns {void}
  */
@@ -14,104 +14,72 @@ export default function () {
 	const presetDefinitions = {}
 
 	/**
-	 * Génère 32 préréglages pour les actions "impulse"
+	 * Feedback of a preset: green background while the GPIO is on.
+	 *
+	 * gpio: GPIO number (1–32).
+	 * @returns {Object} Preset feedback entry.
 	 */
-	for (let i = 0; i < 32; i++) {
+	const stateFeedback = (gpio) => ({
+		feedbackId: 'gpio_state',
+		options: { gpio },
+		style: {
+			bgcolor: this.colors.green,
+		},
+	})
+
+	/**
+	 * Base style of a preset: white text on a black background.
+	 *
+	 * text: button text.
+	 * @returns {Object} Button style.
+	 */
+	const buttonStyle = (text) => ({
+		text,
+		size: 12,
+		color: this.colors.white,
+		bgcolor: this.colors.black,
+	})
+
+	for (let gpio = 1; gpio <= 32; gpio++) {
 		/**
-		 * Définition d'un préréglage pour une action "impulse" sur un bit GPIO spécifique
-		 *
+		 * "Impulse" preset: a press runs a pulse on the GPIO.
 		 * @type {Object}
-		 * @property {string} type - Le type de préréglage (simple dans ce cas)
-		 * @property {string} name - Le nom du préréglage
-		 * @property {Object} style - Le style visuel du bouton
-		 * @property {Array} steps - Les étapes d'action du bouton (appui et relâchement)
-		 * @property {Array} feedbacks - Les retours visuels basés sur l'état du GPIO
 		 */
-		presetDefinitions[`impulse${i + 1}`] = {
+		presetDefinitions[`impulse${gpio}`] = {
 			type: 'simple',
-			name: `Impulse ${i + 1} button`,
-			style: {
-				text: `IMP ${i + 1}`,
-				size: 12,
-				color: this.colors.white,
-				bgcolor: this.colors.black,
-			},
+			name: `Impulse ${gpio} button`,
+			style: buttonStyle(`IMP ${gpio}`),
 			steps: [
 				{
-					down: [
-						{
-							actionId: `impulse${i + 1}`,
-							options: {},
-						},
-					],
+					down: [{ actionId: 'pulse', options: { gpio } }],
 					up: [],
 				},
 			],
-			feedbacks: [
-				{
-					feedbackId: `gpio_state_bit_${i + 1}`,
-					options: {
-						colorOff: this.colors.black,
-						colorOn: this.colors.green,
-					},
-				},
-			],
+			feedbacks: [stateFeedback(gpio)],
 		}
 	}
 
-	/**
-	 * Génère 32 préréglages pour les actions "Two states"
-	 */
-	for (let i = 0; i < 32; i++) {
+	for (let gpio = 1; gpio <= 32; gpio++) {
 		/**
-		 * Définition d'un préréglage pour une action "Two states" sur un bit GPIO spécifique
-		 *
+		 * "Two states" preset: press = set on, release = set off.
 		 * @type {Object}
-		 * @property {string} type - Le type de préréglage (simple dans ce cas)
-		 * @property {string} name - Le nom du préréglage
-		 * @property {Object} style - Le style visuel du bouton
-		 * @property {Array} steps - Les étapes d'action du bouton (appui et relâchement)
-		 * @property {Array} feedbacks - Les retours visuels basés sur l'état du GPIO
 		 */
-		presetDefinitions[`towStates${i + 1}`] = {
+		presetDefinitions[`towStates${gpio}`] = {
 			type: 'simple',
-			name: `Two states ${i + 1} button`,
-			style: {
-				text: `TS ${i + 1}`,
-				size: 12,
-				color: this.colors.white,
-				bgcolor: this.colors.black,
-			},
+			name: `Two states ${gpio} button`,
+			style: buttonStyle(`TS ${gpio}`),
 			steps: [
 				{
-					down: [
-						{
-							actionId: `up${i + 1}`,
-							options: {},
-						},
-					],
-					up: [
-						{
-							actionId: `down${i + 1}`,
-							options: {},
-						},
-					],
+					down: [{ actionId: 'set_on', options: { gpio } }],
+					up: [{ actionId: 'set_off', options: { gpio } }],
 				},
 			],
-			feedbacks: [
-				{
-					feedbackId: `gpio_state_bit_${i + 1}`,
-					options: {
-						colorOff: this.colors.black,
-						colorOn: this.colors.green,
-					},
-				},
-			],
+			feedbacks: [stateFeedback(gpio)],
 		}
 	}
 
 	/**
-	 * Structure des presets : une seule section « GPIO » listant tous les identifiants
+	 * Preset structure: a single "GPIO" section listing every preset ID.
 	 */
 	const presetStructure = [
 		{
@@ -121,8 +89,5 @@ export default function () {
 		},
 	]
 
-	/**
-	 * Définit tous les préréglages générés pour être utilisés par le système
-	 */
 	this.setPresetDefinitions(presetStructure, presetDefinitions)
 }

@@ -1,6 +1,6 @@
 /**
- * @fileoverview Ce fichier contient la définition de la classe ModuleInstance,
- * qui représente une instance de module pour la gestion des GPIO via un NetworkManager.
+ * @fileoverview Defines the ModuleInstance class,
+ * the Companion module instance that drives the GPIOs of a Microfilms robot through a NetworkManager.
  *
  * @module ModuleInstance
  * @requires @companion-module/base
@@ -13,8 +13,8 @@
  * @requires ./protocol
  *
  * @description
- * Ce module initialise et gère les connexions réseau pour contrôler les GPIO,
- * en écoutant les événements et en mettant à jour les variables et les feedbacks en conséquence.
+ * This module sets up and manages the UDP connection to the robot,
+ * listens to its events and updates the connection status, the variables and the feedback accordingly.
  */
 
 import { InstanceBase, Regex, InstanceStatus, combineRgb } from '@companion-module/base'
@@ -25,71 +25,62 @@ import initFeedbacks from './feedbacks.js'
 import initPresets from './presets.js'
 import initVariables from './variables.js'
 import NetworkManager from './network.js'
-import { bytesToBinaryString } from './protocol.js'
+import { bytesToBinaryString, GPIO_COUNT, readBit } from './protocol.js'
 
-/** Adresse IP du robot utilisée si le champ de configuration est vide. */
+/** Robot IP address used when the configuration field is empty. */
 const DEFAULT_HOST = '192.168.10.10'
 
-/** Port UDP du robot utilisé si le champ de configuration est vide. */
+/** Robot UDP port used when the configuration field is empty. */
 const DEFAULT_PORT = 7770
 
-/** Nombre de bits GPIO gérés par le module. */
-const GPIO_COUNT = 32
-
-/** Identifiants des feedbacks GPIO, rechargés à chaque changement d'état. */
-const FEEDBACK_IDS = Array.from({ length: GPIO_COUNT }, (_, i) => `gpio_state_bit_${i + 1}`)
-
 /**
- * Classe représentant une instance de module.
+ * Companion module instance.
  * @extends InstanceBase
  */
 class ModuleInstance extends InstanceBase {
 	/**
-	 * Crée une instance de ModuleInstance.
-	 * @param {Object} internal - L'objet interne.
+	 * Creates a ModuleInstance.
+	 * @param {Object} internal - The internal object passed by Companion.
 	 */
 	constructor(internal) {
 		super(internal)
 	}
 
 	/**
-	 * Initialise le module avec la configuration donnée.
-	 * Signature API 2.x : Companion passe aussi isFirstInit (premier démarrage de l'instance)
-	 * et secrets (secrets de l'instance), non utilisés ici.
-	 * @param {Object} config - La configuration du module.
+	 * Initializes the module with the given configuration.
+	 * API 2.x signature: Companion also passes isFirstInit (first start of the instance)
+	 * and secrets (instance secrets), both unused here.
+	 * @param {Object} config - The module configuration.
 	 * @returns {Promise<void>}
 	 */
 	// eslint-disable-next-line no-unused-vars
 	async init(config, isFirstInit, secrets) {
-		// Couleurs prédéfinies pour les feedbacks
 		this.colors = {
 			white: combineRgb(255, 255, 255),
 			black: combineRgb(0, 0, 0),
 			green: combineRgb(0, 200, 0),
-			red: combineRgb(200, 0, 0),
 		}
 
-		this.setGpioHeader = Buffer.from('INP')
-		this.gpioBytes = Buffer.alloc(4) // Dernier état GPIO connu (lu par les feedbacks)
-		this.lastGpioBytes = null // Dernier état publié dans les variables et feedbacks
-		this.impulseTimers = new Map() // DOWN différés des impulsions en attente (timer → trame DOWN)
+		this.gpioBytes = Buffer.alloc(4) // Last known GPIO state (read by the feedback)
+		this.lastGpioBytes = null // Last state published to the variables and the feedback
+		this.connectionStatus = null // Last status sent to Companion ({ status, message })
+		this.impulseTimers = new Map() // Delayed DOWN frames of the pending pulses (timer → DOWN frame)
 
-		initActions.call(this) // export actions
-		initFeedbacks.call(this) // export feedbacks
-		initPresets.call(this) // export presets
-		initVariables.call(this) // export variables
+		initActions.call(this)
+		initFeedbacks.call(this)
+		initPresets.call(this)
+		initVariables.call(this)
 
 		this.createNetworkManager(config)
 
-		// Module initialisé
 		this.log('info', 'Microfilms GPIO started!')
 	}
 
 	/**
-	 * Remplace le NetworkManager courant par un nouveau, construit sur la configuration donnée
-	 * (défauts appliqués aux champs vides), et y branche les handlers d'événements.
-	 * L'état publié est oublié pour que le premier statut reçu soit republié.
-	 * @param {Object} config - La configuration du module.
+	 * Replaces the current NetworkManager by a new one built on the given configuration
+	 * (defaults applied to empty fields), and attaches the event handlers to it.
+	 * The published state is forgotten so that the first status received is published again.
+	 * @param {Object} config - The module configuration.
 	 * @returns {void}
 	 */
 	createNetworkManager(config) {
@@ -104,39 +95,71 @@ class ModuleInstance extends InstanceBase {
 			port: Number(config?.port) || DEFAULT_PORT,
 		}
 		this.lastGpioBytes = null
-		this.updateStatus(InstanceStatus.Connecting)
+		this.setConnectionStatus(InstanceStatus.Connecting)
 
-		const networkManager = new NetworkManager(this.config, this.log.bind(this), this.setGpioHeader, this.gpioBytes)
+		const networkManager = new NetworkManager(this.config, this.log.bind(this))
 
 		networkManager.on('gpioStatus', (gpioBytes) => {
 			this.handleGpioStatus(gpioBytes)
 		})
 
-		networkManager.on('connectionFailure', (error) => {
-			this.log('error', `Connection failure: ${error}`)
-			this.updateStatus(InstanceStatus.ConnectionFailure)
+		networkManager.on('connectionFailure', (reason) => {
+			this.reportConnectionProblem(InstanceStatus.ConnectionFailure, reason)
+		})
+
+		networkManager.on('pingError', (error) => {
+			this.reportConnectionProblem(InstanceStatus.ConnectionFailure, `Error sending ping: ${error.message}`)
 		})
 
 		networkManager.on('noResponse', (message) => {
-			this.log('error', `No response: ${message}`)
-			this.updateStatus(InstanceStatus.Disconnected)
+			this.reportConnectionProblem(InstanceStatus.Disconnected, message)
 		})
 
 		networkManager.on('sendError', (error) => {
-			this.log('error', `Error sending "Set GPIO" command: ${error}`)
+			this.log('error', `Error sending "Set GPIO" command: ${error.message}`)
 		})
 
 		this.networkManager = networkManager
 	}
 
 	/**
-	 * Traite une réponse "Status" : statut Ok à chaque réponse, puis publication groupée
-	 * des variables `01`…`32` et `Full` et recheck des feedbacks si l'état GPIO a changé.
-	 * @param {Buffer} gpioBytes - Les 4 octets GPIO reçus (Little Endian).
+	 * Sends the connection status and its reason to Companion, only when one of them changes.
+	 * @param {string} status - The new InstanceStatus.
+	 * @param {string|null} [message] - The reason shown next to the status.
+	 * @returns {boolean} True if the status or the reason changed.
+	 */
+	setConnectionStatus(status, message = null) {
+		if (this.connectionStatus?.status === status && this.connectionStatus?.message === message) {
+			return false
+		}
+		this.connectionStatus = { status, message }
+		this.updateStatus(status, message)
+		return true
+	}
+
+	/**
+	 * Reports a connection problem: status with its reason, and one `error` log line per new reason.
+	 * The same reason is logged again only after the connection went back to Ok.
+	 * @param {string} status - InstanceStatus.ConnectionFailure or InstanceStatus.Disconnected.
+	 * @param {string} message - The reason.
+	 * @returns {void}
+	 */
+	reportConnectionProblem(status, message) {
+		if (this.setConnectionStatus(status, message)) {
+			this.log('error', message)
+		}
+	}
+
+	/**
+	 * Handles a "Status" response: Ok status, then grouped publication of the `01`…`32` and `Full`
+	 * variables and recheck of the feedback when the GPIO state changed.
+	 * @param {Buffer} gpioBytes - The 4 received GPIO bytes (Little Endian).
 	 * @returns {void}
 	 */
 	handleGpioStatus(gpioBytes) {
-		this.updateStatus(InstanceStatus.Ok)
+		if (this.setConnectionStatus(InstanceStatus.Ok)) {
+			this.log('info', `Connected to ${this.config.host}:${this.config.port}`)
+		}
 		if (this.lastGpioBytes?.equals(gpioBytes)) {
 			return
 		}
@@ -145,18 +168,17 @@ class ModuleInstance extends InstanceBase {
 		this.lastGpioBytes = this.gpioBytes
 
 		const values = { Full: this.gpioBytes.readUInt32LE(0) }
-		for (let i = 0; i < GPIO_COUNT; i++) {
-			const bitValue = (this.gpioBytes[Math.floor(i / 8)] & (1 << (i % 8))) !== 0 ? 1 : 0
-			values[String(i + 1).padStart(2, '0')] = bitValue
+		for (let gpio = 1; gpio <= GPIO_COUNT; gpio++) {
+			values[String(gpio).padStart(2, '0')] = readBit(this.gpioBytes, gpio)
 		}
 		this.setVariableValues(values)
-		this.checkFeedbacks(...FEEDBACK_IDS)
+		this.checkFeedbacks('gpio_state')
 		this.log('info', `GPIO status changed (GPIO=${bytesToBinaryString(this.gpioBytes)})`)
 	}
 
 	/**
-	 * Envoie sans attendre les DOWN différés des impulsions en attente, pour ne pas laisser
-	 * un bit à 1 sur le robot, puis attend leur émission avant que le socket ne soit fermé.
+	 * Sends right away the delayed DOWN frames of the pending pulses, so that no GPIO is left on
+	 * on the robot, then waits for them to be sent before the socket is closed.
 	 * @returns {Promise<void>}
 	 */
 	async flushImpulseTimers() {
@@ -178,7 +200,7 @@ class ModuleInstance extends InstanceBase {
 	}
 
 	/**
-	 * Détruit le module.
+	 * Destroys the module.
 	 * @returns {Promise<void>}
 	 */
 	async destroy() {
@@ -192,8 +214,8 @@ class ModuleInstance extends InstanceBase {
 	}
 
 	/**
-	 * Met à jour la configuration du module et reconstruit le NetworkManager.
-	 * @param {Object} config - La nouvelle configuration du module.
+	 * Updates the module configuration and rebuilds the NetworkManager.
+	 * @param {Object} config - The new module configuration.
 	 * @returns {Promise<void>}
 	 */
 	async configUpdated(config) {
@@ -203,8 +225,8 @@ class ModuleInstance extends InstanceBase {
 	}
 
 	/**
-	 * Retourne les champs de configuration pour la configuration web.
-	 * @returns {Array<Object>} Les champs de configuration.
+	 * Returns the configuration fields of the web configuration.
+	 * @returns {Array<Object>} The configuration fields.
 	 */
 	getConfigFields() {
 		return [
@@ -228,6 +250,6 @@ class ModuleInstance extends InstanceBase {
 	}
 }
 
-// Entrypoint API 2.x : Companion importe ce fichier et lit `default` et `UpgradeScripts`.
+// API 2.x entrypoint: Companion imports this file and reads `default` and `UpgradeScripts`.
 export default ModuleInstance
 export { UpgradeScripts }

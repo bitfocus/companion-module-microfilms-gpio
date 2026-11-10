@@ -1,38 +1,35 @@
 /**
- * Ce fichier implémente un serveur UDP pour contrôler 32 GPIO.
- * Il gère la réception de commandes, la mise à jour de l'état des GPIO et l'envoi de statuts.
+ * UDP simulator of a Microfilms robot with 32 GPIOs.
+ * It receives the commands, updates the GPIO state and sends "Status" responses back.
  *
- * Modules requis :
- * - dgram (module natif de Node.js pour UDP)
- * - ../src/protocol (helpers purs du protocole UDP/GPIO)
+ * Required modules:
+ * - dgram (Node.js built-in UDP module)
+ * - ../src/protocol (pure helpers of the UDP/GPIO protocol)
  */
 
 import dgram from 'node:dgram'
 import { applyMask, parseInpFrame, buildOutFrame } from '../src/protocol.js'
 
 /**
- * Création d'un socket UDP pour le serveur
+ * UDP socket of the server.
  */
 const server = dgram.createSocket('udp4')
 
 /**
- * Variables internes pour stocker l'état des GPIO
+ * Current state of the 32 GPIOs (4 bytes, all off at start).
  */
-const gpio = Buffer.alloc(4) // 4 octets pour les 32 GPIO (initialisés à 0)
-// const sendStatusInterval = 5000 // Par défaut, envoie un statut toutes les 5 secondes
-// const statusIntervalId = null
+const gpio = Buffer.alloc(4)
 
 /**
- * Fonction pour appliquer le masque et mettre à jour les GPIO
+ * Applies the mask and updates the GPIO state.
  *
- * Cette fonction met à jour l'état des GPIO en appliquant un masque bit à bit.
- * Pour chaque bit :
- * - Si le bit du masque est à 1, la nouvelle valeur (gpioBytes) est appliquée.
- * - Si le bit du masque est à 0, l'état actuel du GPIO est conservé.
- * Cela permet de modifier sélectivement certains GPIO sans affecter les autres.
+ * For each bit:
+ * - if the mask bit is 1, the new value (gpioBytes) is applied;
+ * - if the mask bit is 0, the current GPIO state is kept.
+ * This changes only the selected GPIOs and leaves the others untouched.
  *
- * @param {Buffer} gpioBytes - Les nouvelles valeurs des GPIO
- * @param {Buffer} maskBytes - Le masque à appliquer
+ * @param {Buffer} gpioBytes - The new GPIO values.
+ * @param {Buffer} maskBytes - The mask to apply.
  */
 function applyMaskAndUpdateGPIO(gpioBytes, maskBytes) {
 	const next = applyMask(gpio, gpioBytes, maskBytes)
@@ -40,66 +37,57 @@ function applyMaskAndUpdateGPIO(gpioBytes, maskBytes) {
 }
 
 /**
- * Fonction pour envoyer un message "Status" au client
+ * Sends a "Status" message to the client.
  *
- * Cette fonction crée un message avec l'en-tête 'OUT' suivi de l'état actuel des GPIO,
- * puis l'envoie au client spécifié.
+ * The message is the 'OUT' header followed by the current GPIO state.
  *
- * @param {Object} rinfo - Informations sur le client (adresse et port)
+ * @param {Object} rinfo - The client information (address and port).
  */
 function sendStatus(rinfo) {
 	const statusMessage = buildOutFrame(gpio)
 	server.send(statusMessage, rinfo.port, rinfo.address, (err) => {
 		if (err) {
-			console.error("Erreur lors de l'envoi du message :", err)
+			console.error('Error while sending the message:', err)
 		} else {
-			console.log(`Message "Status" envoyé à ${rinfo.address}:${rinfo.port}`)
+			console.log(`"Status" message sent to ${rinfo.address}:${rinfo.port}`)
 		}
 	})
 }
 
 /**
- * Événement déclenché lorsqu'un message est reçu par le serveur
+ * Handles an incoming message: checks it, updates the GPIO state and sends a "Status" response.
  *
- * Ce gestionnaire d'événements traite les messages entrants, vérifie leur validité,
- * met à jour l'état des GPIO si nécessaire, et envoie une réponse de statut.
- *
- * @param {Buffer} msg - Le message reçu
- * @param {Object} rinfo - Informations sur l'expéditeur (adresse et port)
+ * @param {Buffer} msg - The received message.
+ * @param {Object} rinfo - The sender information (address and port).
  */
 server.on('message', (msg, rinfo) => {
-	console.log(`Message reçu de ${rinfo.address}:${rinfo.port}`)
+	console.log(`Message received from ${rinfo.address}:${rinfo.port}`)
 
 	const parsed = parseInpFrame(msg)
 	if (!parsed) {
-		console.error('Commande invalide, en-tête incorrect')
+		console.error('Invalid command, incorrect header')
 		return
 	}
 
 	applyMaskAndUpdateGPIO(parsed.gpioBytes, parsed.maskBytes)
 
-	// Envoyer une réponse "Status" immédiatement après la commande reçue
 	sendStatus(rinfo)
 })
 
 /**
- * Événement déclenché en cas d'erreur du serveur
+ * Handles a server error: prints it and closes the server.
  *
- * Ce gestionnaire d'événements affiche l'erreur et ferme le serveur.
- *
- * @param {Error} err - L'erreur survenue
+ * @param {Error} err - The error.
  */
 server.on('error', (err) => {
-	console.error(`Erreur du serveur : ${err.stack}`)
+	console.error(`Server error: ${err.stack}`)
 	server.close()
 })
 
 /**
- * Lancement du serveur UDP
- *
- * Cette section configure le port d'écoute du serveur et affiche un message de confirmation.
+ * Starts the UDP server on the simulator port.
  */
 const PORT = 7770
 server.bind(PORT, () => {
-	console.log(`Serveur UDP en écoute sur le port ${PORT}`)
+	console.log(`UDP server listening on port ${PORT}`)
 })

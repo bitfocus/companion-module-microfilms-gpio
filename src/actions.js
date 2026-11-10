@@ -1,113 +1,99 @@
 /**
- * Ce fichier définit les actions pour contrôler les bits GPIO d'un périphérique via UDP.
- * Il permet d'envoyer des impulsions, d'activer (UP) ou de désactiver (DOWN) des bits GPIO spécifiques.
+ * Defines the actions that drive the GPIOs of the robot over UDP: pulse, set on and set off.
+ * Each action targets the GPIO chosen in its `gpio` option (1–32).
  *
- * Modules requis :
- * - Buffer (natif de Node.js)
- * - ./protocol (helpers purs du protocole UDP/GPIO)
+ * Required modules:
+ * - ./protocol (pure helpers of the UDP/GPIO protocol)
+ * - ./options (`gpio` option and its validation)
  */
 
 import { buildImpulseFrames, buildInpFrame, bytesToBinaryString, encodeBit, IMPULSE_DELAY_MS } from './protocol.js'
+import { gpioOption, readGpioOption } from './options.js'
 
 /**
- * Fonction principale qui définit et configure les actions pour le contrôle des GPIO.
- * Cette fonction est exportée et sera appelée lors de l'initialisation du module.
- * Les DOWN différés des impulsions sont suivis dans `this.impulseTimers` (timer → trame DOWN)
- * pour être envoyés sans attendre à l'arrêt ou au changement de configuration.
+ * Defines the `pulse`, `set_on` and `set_off` actions.
+ * This function is called with the module instance as `this` at initialization.
+ * The delayed DOWN frames of the pulses are tracked in `this.impulseTimers` (timer → DOWN frame)
+ * so that they can be sent right away when the module stops or its configuration changes.
  *
  * @returns {void}
  */
 export default function () {
-	const actionDefinitions = {}
-
-	for (let i = 0; i < 32; i++) {
-		const bit = i + 1
-		const label = `GPIO ${String(bit).padStart(2, '0')}`
-
+	const actionDefinitions = {
 		/**
-		 * Action pour envoyer une impulsion à un bit GPIO spécifique.
-		 * Cette action envoie d'abord un signal UP, attend IMPULSE_DELAY_MS, puis envoie un signal DOWN.
-		 *
+		 * Sets the GPIO on, then off after IMPULSE_DELAY_MS.
 		 * @type {Object}
-		 * @property {string} name - Le nom de l'action
-		 * @property {string} description - La description de l'action
-		 * @property {Array} options - Les options de l'action (vide dans ce cas)
-		 * @property {Function} callback - La fonction de rappel asynchrone exécutée lors de l'appel de l'action
 		 */
-		actionDefinitions[`impulse${bit}`] = {
-			name: `${label} pulse (${IMPULSE_DELAY_MS} ms)`,
-			description: `Sets GPIO ${bit} on, then off after ${IMPULSE_DELAY_MS} ms. Other GPIOs are left unchanged.`,
-			options: [],
-			callback: async () => {
+		pulse: {
+			name: 'GPIO pulse',
+			description: `Sets the GPIO on, then off after ${IMPULSE_DELAY_MS} ms. Other GPIOs are left unchanged.`,
+			options: [gpioOption],
+			callback: async (action) => {
+				const bit = readGpioOption(action.options, this.log.bind(this), 'GPIO pulse')
+				if (bit === null) {
+					return
+				}
 				const { up, down } = buildImpulseFrames(bit)
-				const gpioBytesUp = up.subarray(3, 7)
-
-				this.networkManager.sendGpioCommand(up)
+				const sent = this.networkManager.sendGpioCommand(up)
 				const timer = setTimeout(() => {
 					this.impulseTimers.delete(timer)
-					this.networkManager.sendGpioCommand(down)
+					this.networkManager?.sendGpioCommand(down)
 				}, IMPULSE_DELAY_MS)
 				this.impulseTimers.set(timer, down)
 				this.log(
 					'info',
-					`"Set GPIO bit ${bit} UP" sent to ${this.config.host}:${this.config.port} (GPIO=${bytesToBinaryString(gpioBytesUp)})`,
+					`"Set GPIO bit ${bit} UP" sent to ${this.config.host}:${this.config.port} (GPIO=${bytesToBinaryString(up.subarray(3, 7))})`,
 				)
+				await sent
 			},
-		}
+		},
 
 		/**
-		 * Action pour activer (mettre à l'état haut) un bit GPIO spécifique.
-		 *
+		 * Sets the GPIO on and keeps it on.
 		 * @type {Object}
-		 * @property {string} name - Le nom de l'action
-		 * @property {string} description - La description de l'action
-		 * @property {Array} options - Les options de l'action (vide dans ce cas)
-		 * @property {Function} callback - La fonction de rappel asynchrone exécutée lors de l'appel de l'action
 		 */
-		actionDefinitions[`up${bit}`] = {
-			name: `${label} set on`,
-			description: `Sets GPIO ${bit} on and keeps it on. Other GPIOs are left unchanged.`,
-			options: [],
-			callback: async () => {
+		set_on: {
+			name: 'GPIO set on',
+			description: 'Sets the GPIO on and keeps it on. Other GPIOs are left unchanged.',
+			options: [gpioOption],
+			callback: async (action) => {
+				const bit = readGpioOption(action.options, this.log.bind(this), 'GPIO set on')
+				if (bit === null) {
+					return
+				}
 				const gpioBytesUp = encodeBit(bit)
-				const msgUp = buildInpFrame(gpioBytesUp, encodeBit(bit))
-
-				this.networkManager.sendGpioCommand(msgUp)
+				const sent = this.networkManager.sendGpioCommand(buildInpFrame(gpioBytesUp, encodeBit(bit)))
 				this.log(
 					'info',
 					`"Set GPIO bit ${bit} UP" sent to ${this.config.host}:${this.config.port} (GPIO=${bytesToBinaryString(gpioBytesUp)})`,
 				)
+				await sent
 			},
-		}
+		},
 
 		/**
-		 * Action pour désactiver (mettre à l'état bas) un bit GPIO spécifique.
-		 *
+		 * Sets the GPIO off.
 		 * @type {Object}
-		 * @property {string} name - Le nom de l'action
-		 * @property {string} description - La description de l'action
-		 * @property {Array} options - Les options de l'action (vide dans ce cas)
-		 * @property {Function} callback - La fonction de rappel asynchrone exécutée lors de l'appel de l'action
 		 */
-		actionDefinitions[`down${bit}`] = {
-			name: `${label} set off`,
-			description: `Sets GPIO ${bit} off. Other GPIOs are left unchanged.`,
-			options: [],
-			callback: async () => {
+		set_off: {
+			name: 'GPIO set off',
+			description: 'Sets the GPIO off. Other GPIOs are left unchanged.',
+			options: [gpioOption],
+			callback: async (action) => {
+				const bit = readGpioOption(action.options, this.log.bind(this), 'GPIO set off')
+				if (bit === null) {
+					return
+				}
 				const gpioBytesDown = Buffer.alloc(4)
-				const msgDown = buildInpFrame(gpioBytesDown, encodeBit(bit))
-
-				this.networkManager.sendGpioCommand(msgDown)
+				const sent = this.networkManager.sendGpioCommand(buildInpFrame(gpioBytesDown, encodeBit(bit)))
 				this.log(
 					'info',
 					`"Set GPIO bit ${bit} DOWN" sent to ${this.config.host}:${this.config.port} (GPIO=${bytesToBinaryString(gpioBytesDown)})`,
 				)
+				await sent
 			},
-		}
+		},
 	}
 
-	/**
-	 * Définit les actions configurées pour être utilisées par le système.
-	 */
 	this.setActionDefinitions(actionDefinitions)
 }

@@ -1,65 +1,78 @@
 /**
- * Helpers purs du protocole UDP/GPIO (trames INP/OUT, masque, bits 1–32).
- * Source unique pour les actions, le NetworkManager et le simulateur.
+ * Pure helpers of the UDP/GPIO protocol (INP/OUT frames, mask, GPIO 1–32).
+ * Single source for the actions, the feedback, the NetworkManager and the simulator.
  *
- * Modules requis :
- * - Buffer (natif de Node.js)
+ * Required modules:
+ * - Buffer (Node.js built-in)
  *
- * Créé le 2026-09-10. Licence MIT. Compatible module 0.1.0.
+ * Created 2026-09-10.
  */
 
-/** En-tête des trames de commande (3 caractères). La trame INP fait 13 octets. */
+/** Header of command frames (3 characters). An INP frame is 13 bytes long. */
 const INP_HEADER = 'INP'
 
-/** En-tête des trames de statut (3 caractères). La trame OUT fait 7 octets. */
+/** Header of status frames (3 characters). An OUT frame is 7 bytes long. */
 const OUT_HEADER = 'OUT'
 
-/** Délai Impulse entre UP et DOWN, en millisecondes. */
+/** Pulse delay between UP and DOWN, in milliseconds. */
 const IMPULSE_DELAY_MS = 100
 
-/** Intervalle d'envoi du ping GPIO, en millisecondes. */
+/** Interval between two GPIO pings, in milliseconds. */
 const PING_INTERVAL_MS = 500
 
-/** Délai sans réponse OUT avant noResponse, en millisecondes. */
+/** Delay without an OUT response before noResponse, in milliseconds. */
 const RECEPTION_TIMEOUT_MS = 3000
 
-/** Longueur du champ GPIO et du champ masque, en octets. */
+/** Number of GPIOs handled by the module (GPIO 1 to 32). */
+const GPIO_COUNT = 32
+
+/** Length of the GPIO field and of the mask field, in bytes. */
 const GPIO_LENGTH = 4
 
-/** Longueur des octets réservés en fin de trame INP. */
+/** Length of the reserved bytes at the end of an INP frame. */
 const RESERVED_LENGTH = 2
 
-/** Longueur minimale d'une trame OUT exploitable : en-tête + GPIO. */
+/** Minimum length of a usable OUT frame: header + GPIO. */
 const OUT_MIN_LENGTH = OUT_HEADER.length + GPIO_LENGTH
 
-/** Longueur minimale d'une trame INP exploitable : en-tête + GPIO + masque. */
+/** Minimum length of a usable INP frame: header + GPIO + mask. */
 const INP_MIN_LENGTH = INP_HEADER.length + 2 * GPIO_LENGTH
 
 /**
- * Calcule l'index d'octet (0–3) pour le bit opérateur N (1–32).
+ * Tells whether a value is a valid GPIO number: an integer from 1 to 32.
  *
- * bit : numéro de bit opérateur (1–32).
- * @returns {number} Index d'octet dans le buffer GPIO.
+ * value: any value (option value, expression result).
+ * @returns {boolean} True for 1, 2, … 32; false for 0, 33, 2.5, strings, null or undefined.
+ */
+function isValidBit(value) {
+	return Number.isInteger(value) && value >= 1 && value <= GPIO_COUNT
+}
+
+/**
+ * Computes the byte index (0–3) of GPIO N (1–32).
+ *
+ * bit: GPIO number (1–32).
+ * @returns {number} Byte index in the GPIO buffer.
  */
 function bitByteIndex(bit) {
 	return Math.floor((bit - 1) / 8)
 }
 
 /**
- * Calcule le masque de bit dans l'octet pour le bit opérateur N (1–32).
+ * Computes the bit mask inside the byte of GPIO N (1–32).
  *
- * bit : numéro de bit opérateur (1–32).
- * @returns {number} Valeur `1 << ((N-1) % 8)`.
+ * bit: GPIO number (1–32).
+ * @returns {number} Value `1 << ((N-1) % 8)`.
  */
 function bitBitMask(bit) {
 	return 1 << ((bit - 1) % 8)
 }
 
 /**
- * Construit un buffer GPIO de 4 octets avec uniquement le bit N positionné.
+ * Builds a 4-byte GPIO buffer with only GPIO N set.
  *
- * bit : numéro de bit opérateur (1–32).
- * @returns {Buffer} Buffer de 4 octets.
+ * bit: GPIO number (1–32).
+ * @returns {Buffer} 4-byte buffer.
  */
 function encodeBit(bit) {
 	const bytes = Buffer.alloc(GPIO_LENGTH)
@@ -68,30 +81,41 @@ function encodeBit(bit) {
 }
 
 /**
- * Construit une trame INP de 13 octets : en-tête + GPIO + masque + 2 réservés.
+ * Reads the state of GPIO N (1–32) in 4 GPIO bytes (Little Endian).
  *
- * gpioBytes : 4 octets de valeurs GPIO.
- * maskBytes : 4 octets de masque.
- * @returns {Buffer} Trame INP complète.
+ * gpioBytes: 4 GPIO bytes.
+ * bit: GPIO number (1–32).
+ * @returns {number} 1 if the GPIO is on, 0 otherwise.
+ */
+function readBit(gpioBytes, bit) {
+	return (gpioBytes[bitByteIndex(bit)] & bitBitMask(bit)) !== 0 ? 1 : 0
+}
+
+/**
+ * Builds a 13-byte INP frame: header + GPIO + mask + 2 reserved bytes.
+ *
+ * gpioBytes: 4 bytes of GPIO values.
+ * maskBytes: 4 bytes of mask.
+ * @returns {Buffer} Complete INP frame.
  */
 function buildInpFrame(gpioBytes, maskBytes) {
 	return Buffer.concat([Buffer.from(INP_HEADER), gpioBytes, maskBytes, Buffer.alloc(RESERVED_LENGTH)])
 }
 
 /**
- * Construit la trame de ping : INP, GPIO et masque à 0, 2 octets réservés.
+ * Builds the ping frame: INP, GPIO and mask set to 0, 2 reserved bytes.
  *
- * @returns {Buffer} Trame INP de ping.
+ * @returns {Buffer} Ping INP frame.
  */
 function buildPingFrame() {
 	return buildInpFrame(Buffer.alloc(GPIO_LENGTH), Buffer.alloc(GPIO_LENGTH))
 }
 
 /**
- * Construit les deux trames Impulse (UP puis DOWN) pour le bit N, même masque.
+ * Builds the two pulse frames (UP then DOWN) for GPIO N, with the same mask.
  *
- * bit : numéro de bit opérateur (1–32).
- * @returns {{up: Buffer, down: Buffer}} Trames INP UP et DOWN.
+ * bit: GPIO number (1–32).
+ * @returns {{up: Buffer, down: Buffer}} UP and DOWN INP frames.
  */
 function buildImpulseFrames(bit) {
 	const maskBytes = encodeBit(bit)
@@ -102,27 +126,27 @@ function buildImpulseFrames(bit) {
 }
 
 /**
- * Applique le masque bit à bit : `(ancien & ~masque) | (nouveau & masque)`.
- * Les bits non masqués restent inchangés. Ne mute pas les buffers d'entrée.
+ * Applies the mask bitwise: `(state & ~mask) | (gpio & mask)`.
+ * Unmasked bits are left unchanged. The input buffers are not mutated.
  *
- * etat : état GPIO actuel (4 octets).
- * gpio : nouvelles valeurs GPIO (4 octets).
- * masque : masque à appliquer (4 octets).
- * @returns {Buffer} Nouvel état GPIO de 4 octets.
+ * state: current GPIO state (4 bytes).
+ * gpio: new GPIO values (4 bytes).
+ * mask: mask to apply (4 bytes).
+ * @returns {Buffer} New 4-byte GPIO state.
  */
-function applyMask(etat, gpio, masque) {
+function applyMask(state, gpio, mask) {
 	const result = Buffer.alloc(GPIO_LENGTH)
 	for (let i = 0; i < GPIO_LENGTH; i++) {
-		result[i] = (etat[i] & ~masque[i]) | (gpio[i] & masque[i])
+		result[i] = (state[i] & ~mask[i]) | (gpio[i] & mask[i])
 	}
 	return result
 }
 
 /**
- * Analyse une trame OUT. Retourne les 4 octets GPIO si l'en-tête est valide.
+ * Parses an OUT frame. Returns the 4 GPIO bytes when the header is valid.
  *
- * msg : datagramme reçu.
- * @returns {Buffer|null} Octets GPIO, ou null si la trame est trop courte ou si l'en-tête n'est pas OUT.
+ * msg: received datagram.
+ * @returns {Buffer|null} GPIO bytes, or null if the frame is too short or the header is not OUT.
  */
 function parseOutFrame(msg) {
 	if (!msg || msg.length < OUT_MIN_LENGTH) {
@@ -136,11 +160,11 @@ function parseOutFrame(msg) {
 }
 
 /**
- * Analyse une trame INP. Retourne GPIO et masque si l'en-tête est valide.
+ * Parses an INP frame. Returns GPIO and mask when the header is valid.
  *
- * msg : datagramme reçu.
- * @returns {{gpioBytes: Buffer, maskBytes: Buffer}|null} Champs extraits, ou null si la trame est trop courte
- * ou si l'en-tête n'est pas INP.
+ * msg: received datagram.
+ * @returns {{gpioBytes: Buffer, maskBytes: Buffer}|null} Extracted fields, or null if the frame is too short
+ * or the header is not INP.
  */
 function parseInpFrame(msg) {
 	if (!msg || msg.length < INP_MIN_LENGTH) {
@@ -157,20 +181,20 @@ function parseInpFrame(msg) {
 }
 
 /**
- * Construit une trame OUT de 7 octets : en-tête + 4 octets GPIO.
+ * Builds a 7-byte OUT frame: header + 4 GPIO bytes.
  *
- * gpioBytes : état GPIO à renvoyer.
- * @returns {Buffer} Trame OUT complète.
+ * gpioBytes: GPIO state to send back.
+ * @returns {Buffer} Complete OUT frame.
  */
 function buildOutFrame(gpioBytes) {
 	return Buffer.concat([Buffer.from(OUT_HEADER), gpioBytes])
 }
 
 /**
- * Représente des octets GPIO en binaire, octet de poids fort en tête (bit 32 à gauche).
+ * Renders GPIO bytes in binary, most significant byte first (GPIO 32 on the left).
  *
- * gpioBytes : octets GPIO en Little Endian.
- * @returns {string} Groupes de 8 bits séparés par des espaces.
+ * gpioBytes: GPIO bytes in Little Endian.
+ * @returns {string} Groups of 8 bits separated by spaces.
  */
 function bytesToBinaryString(gpioBytes) {
 	return Array.from(gpioBytes)
@@ -185,9 +209,12 @@ export {
 	IMPULSE_DELAY_MS,
 	PING_INTERVAL_MS,
 	RECEPTION_TIMEOUT_MS,
+	GPIO_COUNT,
+	isValidBit,
 	bitByteIndex,
 	bitBitMask,
 	encodeBit,
+	readBit,
 	buildInpFrame,
 	buildPingFrame,
 	buildImpulseFrames,
