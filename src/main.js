@@ -139,7 +139,7 @@ class ModuleInstance extends InstanceBase {
 
 	/**
 	 * Reports a connection problem: status with its reason, and one `error` log line per new reason.
-	 * The same reason is logged again only after the connection went back to Ok.
+	 * The same reason is logged again only after the status or the reason changed in between.
 	 * @param {string} status - InstanceStatus.ConnectionFailure or InstanceStatus.Disconnected.
 	 * @param {string} message - The reason.
 	 * @returns {void}

@@ -34,7 +34,7 @@ export default function () {
 					return
 				}
 				const { up, down } = buildImpulseFrames(bit)
-				const sent = this.networkManager.sendGpioCommand(up)
+				const sent = this.networkManager?.sendGpioCommand(up)
 				const timer = setTimeout(() => {
 					this.impulseTimers.delete(timer)
 					this.networkManager?.sendGpioCommand(down)
@@ -62,7 +62,7 @@ export default function () {
 					return
 				}
 				const gpioBytesUp = encodeBit(bit)
-				const sent = this.networkManager.sendGpioCommand(buildInpFrame(gpioBytesUp, encodeBit(bit)))
+				const sent = this.networkManager?.sendGpioCommand(buildInpFrame(gpioBytesUp, encodeBit(bit)))
 				this.log(
 					'info',
 					`"Set GPIO bit ${bit} UP" sent to ${this.config.host}:${this.config.port} (GPIO=${bytesToBinaryString(gpioBytesUp)})`,
@@ -85,7 +85,7 @@ export default function () {
 					return
 				}
 				const gpioBytesDown = Buffer.alloc(4)
-				const sent = this.networkManager.sendGpioCommand(buildInpFrame(gpioBytesDown, encodeBit(bit)))
+				const sent = this.networkManager?.sendGpioCommand(buildInpFrame(gpioBytesDown, encodeBit(bit)))
 				this.log(
 					'info',
 					`"Set GPIO bit ${bit} DOWN" sent to ${this.config.host}:${this.config.port} (GPIO=${bytesToBinaryString(gpioBytesDown)})`,

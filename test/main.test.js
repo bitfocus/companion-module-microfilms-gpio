@@ -247,6 +247,34 @@ nodeTest.describe('ModuleInstance connection status and log lines', () => {
 		}
 	})
 
+	nodeTest('repeated invalid Status responses: ConnectionFailure only, no noResponse, one log', async () => {
+		const server = dgram.createSocket('udp4')
+		server.on('message', (msg, rinfo) => {
+			server.send(Buffer.from('XXX\x00\x00\x00\x00'), rinfo.port, rinfo.address)
+		})
+		await new Promise((resolve) => server.bind(0, '127.0.0.1', resolve))
+		const { instance, calls } = createModule()
+		try {
+			await instance.init({ host: '127.0.0.1', port: String(server.address().port) }, true, {})
+			instance.networkManager.receptionWatcherInterval = 200
+			const noResponses = []
+			instance.networkManager.on('noResponse', (message) => noResponses.push(message))
+			await new Promise((resolve) => setTimeout(resolve, 1500))
+
+			assert.equal(noResponses.length, 0)
+			assert.deepEqual(
+				calls.status.map((s) => s.status),
+				[InstanceStatus.Connecting, InstanceStatus.ConnectionFailure],
+			)
+			assert.deepEqual(logsOf(calls, 'error'), [
+				{ level: 'error', message: 'Incorrect header or length in "Status" response' },
+			])
+		} finally {
+			await instance.destroy()
+			await new Promise((resolve) => server.close(resolve))
+		}
+	})
+
 	nodeTest('UDP socket error: ConnectionFailure, no crash, logged once', async () => {
 		const { instance, calls } = createModule()
 		const server = await startServer(Buffer.alloc(4), { silent: true })

@@ -1,7 +1,12 @@
 /**
  * Defines the "Impulse" and "Two states" button presets for the 32 GPIOs.
  * Each preset uses the shared actions and feedback with its GPIO in the `gpio` option.
+ *
+ * Required modules:
+ * - ./protocol (GPIO count)
  */
+
+import { GPIO_COUNT } from './protocol.js'
 
 /**
  * Builds and sets the button presets, in a single "GPIO" section.
@@ -40,7 +45,7 @@ export default function () {
 		bgcolor: this.colors.black,
 	})
 
-	for (let gpio = 1; gpio <= 32; gpio++) {
+	for (let gpio = 1; gpio <= GPIO_COUNT; gpio++) {
 		/**
 		 * "Impulse" preset: a press runs a pulse on the GPIO.
 		 * @type {Object}
@@ -59,7 +64,7 @@ export default function () {
 		}
 	}
 
-	for (let gpio = 1; gpio <= 32; gpio++) {
+	for (let gpio = 1; gpio <= GPIO_COUNT; gpio++) {
 		/**
 		 * "Two states" preset: press = set on, release = set off.
 		 * @type {Object}

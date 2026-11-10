@@ -61,12 +61,12 @@ class NetworkManager extends EventEmitter {
 
 		this.udpClient.on('message', (msg, rinfo) => {
 			const gpioBytes = parseOutFrame(msg)
+			clearTimeout(this.receptionWatcherId)
+			this.waitingForStatusResponse = false
 			if (!gpioBytes) {
 				this.emit('connectionFailure', 'Incorrect header or length in "Status" response')
 				return
 			}
-			clearTimeout(this.receptionWatcherId)
-			this.waitingForStatusResponse = false
 			this.emit('gpioStatus', gpioBytes)
 			this.log(
 				'debug',

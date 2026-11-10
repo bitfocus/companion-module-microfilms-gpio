@@ -1,6 +1,11 @@
 /**
  * Defines the state variables of the 32 GPIOs and a variable holding all GPIO states at once.
+ *
+ * Required modules:
+ * - ./protocol (GPIO count)
  */
+
+import { GPIO_COUNT } from './protocol.js'
 
 /**
  * Defines the GPIO state variables.
@@ -13,7 +18,7 @@
 export default function () {
 	const variableDefinitions = {}
 
-	for (let gpio = 1; gpio <= 32; gpio++) {
+	for (let gpio = 1; gpio <= GPIO_COUNT; gpio++) {
 		const id = String(gpio).padStart(2, '0')
 		/**
 		 * State of one GPIO, indexed by its ID (`01`…`32`).

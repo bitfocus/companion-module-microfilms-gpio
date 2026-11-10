@@ -120,7 +120,7 @@ corepack enable
 yarn install
 ```
 
-Start Companion 5, add the "Microfilms: Gpio" connection (**Dev** version) and set the IP address and port of the robot.
+Start Companion 5, add the "Microfilms: GPIO" connection (**Dev** version) and set the IP address and port of the robot.
 
 ## Tests
 

@@ -9,7 +9,7 @@ Controls the 32 GPIOs of a Microfilms robot (stage machinery) from Companion and
 - **Target IP**: robot address, `192.168.10.10` by default. For the local simulator: `127.0.0.1`.
 - **Target Port**: UDP port, `7770` by default.
 
-The connection turns **OK** as soon as a `Status` response arrives. A ping is sent every 500 ms; with no response for 3 s, the status turns **Disconnected**. When a ping cannot be sent (network unreachable, for example), the status turns **Connection failure** with the reason. Saving the configuration reconnects to the new address and port.
+The connection turns **OK** as soon as a `Status` response arrives. A ping is sent every 500 ms; with no response for 3 s, the status turns **Disconnected**. The status turns **Connection failure** with the reason when a ping cannot be sent (network unreachable, for example), when the `Status` response is invalid (wrong header or length), or on a UDP socket error. Saving the configuration reconnects to the new address and port.
 
 ### Actions
 
