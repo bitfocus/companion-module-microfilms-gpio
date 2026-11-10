@@ -27,74 +27,49 @@
     <section>
         <article>
             <pre class="prettyprint source linenums"><code>/**
- * Ce fichier définit les feedbacks pour 32 bits GPIO.
- * Il génère dynamiquement des définitions de feedback pour chaque bit GPIO,
- * permettant de changer la couleur de fond en fonction de l'état du bit.
+ * Defines the `gpio_state` boolean feedback: true while the GPIO chosen in its `gpio` option is on.
+ * The style applied when true defaults to a green background; Companion provides the inversion.
+ *
+ * Required modules:
+ * - ./protocol (bit reading)
+ * - ./options (`gpio` option and its validation)
  */
 
+import { readBit } from './protocol.js'
+import { gpioOption, readGpioOption } from './options.js'
+
 /**
- * Fonction qui définit les feedbacks pour les états des GPIO.
- * Cette fonction est exportée et sera appelée lors de l'initialisation du module.
+ * Defines the GPIO state feedback.
+ * This function is called with the module instance as `this` at initialization.
+ * The callback reads the last GPIO state received from the robot (`this.gpioBytes`).
  *
  * @returns {void}
  */
 export default function () {
-	const feedbackDefinitions = {}
-
-	/**
-	 * Génère les définitions de feedback pour les 32 bits GPIO
-	 */
-	for (let i = 0; i &lt; 32; i++) {
+	const feedbackDefinitions = {
 		/**
-		 * Définition d'un feedback pour un bit GPIO spécifique
-		 *
+		 * True when the GPIO is on in the last Status response.
 		 * @type {Object}
-		 * @property {string} type - Le type de feedback (avancé dans ce cas)
-		 * @property {string} name - Le nom descriptif du feedback
-		 * @property {string} description - La description du comportement du feedback
-		 * @property {Array&lt;string>} affectedProperties - Les propriétés de style modifiées (API 2.x)
-		 * @property {Array} options - Les options configurables du feedback
-		 * @property {Function} callback - La fonction de rappel qui détermine l'état du feedback
 		 */
-		feedbackDefinitions[`gpio_state_bit_${i + 1}`] = {
-			type: 'advanced',
-			name: `GPIO ${String(i + 1).padStart(2, '0')} state`,
-			description: `Sets the button background color from the state of GPIO ${i + 1} (off / on)`,
-			affectedProperties: ['bgcolor'],
-			options: [
-				{
-					type: 'colorpicker',
-					label: 'Background color when off',
-					id: 'colorOff',
-					default: this.colors.red,
-				},
-				{
-					type: 'colorpicker',
-					label: 'Background color when on',
-					id: 'colorOn',
-					default: this.colors.green,
-				},
-			],
-			callback: (event) => {
-				// Récupérer l'octet correspondant et le bit dans this.gpioBytes
-				const byteIndex = Math.floor(i / 8) // Index de l'octet dans gpioBytes (0 à 3)
-				const bitIndex = i % 8 // Position du bit dans l'octet (0 à 7)
-
-				// Vérifier si le bit est activé (1) ou désactivé (0)
-				const isBitOn = (this.gpioBytes[byteIndex] &amp; (1 &lt;&lt; bitIndex)) !== 0
-
-				if (isBitOn) {
-					return { bgcolor: event.options.colorOn } // Si le bit est à 1, couleur verte
-				} else {
-					return { bgcolor: event.options.colorOff } // Si le bit est à 0, couleur rouge
-				}
+		gpio_state: {
+			type: 'boolean',
+			name: 'GPIO state',
+			description: 'True while the GPIO is on, from the last Status response of the robot.',
+			defaultStyle: {
+				bgcolor: this.colors.green,
 			},
-		}
+			showInvert: true,
+			options: [gpioOption],
+			callback: (feedback) => {
+				const bit = readGpioOption(feedback.options, this.log.bind(this), 'GPIO state')
+				if (bit === null) {
+					return false
+				}
+				return readBit(this.gpioBytes, bit) === 1
+			},
+		},
 	}
 
-	/**
-	 * Définit tous les feedbacks générés pour être utilisés par le système
-	 */
 	this.setFeedbackDefinitions(feedbackDefinitions)
 }
 </code></pre>
@@ -107,13 +82,13 @@ export default function () {
 </div>
 
 <nav>
-    <h2><a href="index.html">Home</a></h2><h3>Modules</h3><ul><li><a href="module-ModuleInstance.html">ModuleInstance</a></li><li><a href="module-NetworkManager.html">NetworkManager</a></li></ul><h3>Classes</h3><ul><li><a href="module-ModuleInstance-ModuleInstance.html">ModuleInstance</a></li><li><a href="module-NetworkManager-NetworkManager.html">NetworkManager</a></li></ul><h3>Global</h3><ul><li><a href="global.html#GPIO_LENGTH">GPIO_LENGTH</a></li><li><a href="global.html#IMPULSE_DELAY_MS">IMPULSE_DELAY_MS</a></li><li><a href="global.html#INP_HEADER">INP_HEADER</a></li><li><a href="global.html#INP_MIN_LENGTH">INP_MIN_LENGTH</a></li><li><a href="global.html#OUT_HEADER">OUT_HEADER</a></li><li><a href="global.html#OUT_MIN_LENGTH">OUT_MIN_LENGTH</a></li><li><a href="global.html#PING_INTERVAL_MS">PING_INTERVAL_MS</a></li><li><a href="global.html#PORT">PORT</a></li><li><a href="global.html#RECEPTION_TIMEOUT_MS">RECEPTION_TIMEOUT_MS</a></li><li><a href="global.html#RESERVED_LENGTH">RESERVED_LENGTH</a></li><li><a href="global.html#UpgradeScripts">UpgradeScripts</a></li><li><a href="global.html#applyMask">applyMask</a></li><li><a href="global.html#applyMaskAndUpdateGPIO">applyMaskAndUpdateGPIO</a></li><li><a href="global.html#bitBitMask">bitBitMask</a></li><li><a href="global.html#bitByteIndex">bitByteIndex</a></li><li><a href="global.html#buildImpulseFrames">buildImpulseFrames</a></li><li><a href="global.html#buildInpFrame">buildInpFrame</a></li><li><a href="global.html#buildOutFrame">buildOutFrame</a></li><li><a href="global.html#buildPingFrame">buildPingFrame</a></li><li><a href="global.html#bytesToBinaryString">bytesToBinaryString</a></li><li><a href="global.html#encodeBit">encodeBit</a></li><li><a href="global.html#gpio">gpio</a></li><li><a href="global.html#parseInpFrame">parseInpFrame</a></li><li><a href="global.html#parseOutFrame">parseOutFrame</a></li><li><a href="global.html#sendStatus">sendStatus</a></li><li><a href="global.html#server">server</a></li></ul>
+    <h2><a href="index.html">Home</a></h2><h3>Modules</h3><ul><li><a href="module-ModuleInstance.html">ModuleInstance</a></li><li><a href="module-NetworkManager.html">NetworkManager</a></li></ul><h3>Classes</h3><ul><li><a href="module-ModuleInstance-ModuleInstance.html">ModuleInstance</a></li><li><a href="module-NetworkManager-NetworkManager.html">NetworkManager</a></li></ul><h3>Events</h3><ul><li><a href="NetworkManager.html#event:connectionFailure">connectionFailure</a></li><li><a href="NetworkManager.html#event:gpioStatus">gpioStatus</a></li><li><a href="NetworkManager.html#event:noResponse">noResponse</a></li><li><a href="NetworkManager.html#event:pingError">pingError</a></li><li><a href="NetworkManager.html#event:sendError">sendError</a></li></ul><h3>Global</h3><ul><li><a href="global.html#ACTION_ID_MAP">ACTION_ID_MAP</a></li><li><a href="global.html#DEFAULT_ON_COLOR">DEFAULT_ON_COLOR</a></li><li><a href="global.html#GPIO_COUNT">GPIO_COUNT</a></li><li><a href="global.html#GPIO_LENGTH">GPIO_LENGTH</a></li><li><a href="global.html#IMPULSE_DELAY_MS">IMPULSE_DELAY_MS</a></li><li><a href="global.html#INP_HEADER">INP_HEADER</a></li><li><a href="global.html#INP_MIN_LENGTH">INP_MIN_LENGTH</a></li><li><a href="global.html#LEGACY_ACTION_ID">LEGACY_ACTION_ID</a></li><li><a href="global.html#LEGACY_FEEDBACK_ID">LEGACY_FEEDBACK_ID</a></li><li><a href="global.html#OUT_HEADER">OUT_HEADER</a></li><li><a href="global.html#OUT_MIN_LENGTH">OUT_MIN_LENGTH</a></li><li><a href="global.html#PING_INTERVAL_MS">PING_INTERVAL_MS</a></li><li><a href="global.html#PORT">PORT</a></li><li><a href="global.html#RECEPTION_TIMEOUT_MS">RECEPTION_TIMEOUT_MS</a></li><li><a href="global.html#RESERVED_LENGTH">RESERVED_LENGTH</a></li><li><a href="global.html#applyMask">applyMask</a></li><li><a href="global.html#applyMaskAndUpdateGPIO">applyMaskAndUpdateGPIO</a></li><li><a href="global.html#bitBitMask">bitBitMask</a></li><li><a href="global.html#bitByteIndex">bitByteIndex</a></li><li><a href="global.html#buildImpulseFrames">buildImpulseFrames</a></li><li><a href="global.html#buildInpFrame">buildInpFrame</a></li><li><a href="global.html#buildOutFrame">buildOutFrame</a></li><li><a href="global.html#buildPingFrame">buildPingFrame</a></li><li><a href="global.html#bytesToBinaryString">bytesToBinaryString</a></li><li><a href="global.html#encodeBit">encodeBit</a></li><li><a href="global.html#gpio">gpio</a></li><li><a href="global.html#gpioOption">gpioOption</a></li><li><a href="global.html#isValidBit">isValidBit</a></li><li><a href="global.html#legacyBit">legacyBit</a></li><li><a href="global.html#onColor">onColor</a></li><li><a href="global.html#parseInpFrame">parseInpFrame</a></li><li><a href="global.html#parseOutFrame">parseOutFrame</a></li><li><a href="global.html#readBit">readBit</a></li><li><a href="global.html#readGpioOption">readGpioOption</a></li><li><a href="global.html#sendStatus">sendStatus</a></li><li><a href="global.html#server">server</a></li><li><a href="global.html#upgradeToGpioOption">upgradeToGpioOption</a></li></ul>
 </nav>
 
 <br class="clear">
 
 <footer>
-    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.5</a> on Mon Nov 09 2026 09:59:15 GMT+0100 (heure normale d’Europe centrale)
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.5</a> on Tue Nov 10 2026 15:41:08 GMT+0100 (heure normale d’Europe centrale)
 </footer>
 
 <script> prettyPrint(); </script>

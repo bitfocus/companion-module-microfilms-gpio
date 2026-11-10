@@ -27,8 +27,8 @@
     <section>
         <article>
             <pre class="prettyprint source linenums"><code>/**
- * @fileoverview Ce fichier contient la définition de la classe NetworkManager,
- * qui gère les connexions réseau pour envoyer et recevoir des commandes GPIO.
+ * @fileoverview Defines the NetworkManager class,
+ * which handles the UDP connection used to send GPIO commands and receive the GPIO state.
  *
  * @module NetworkManager
  * @requires dgram
@@ -36,8 +36,8 @@
  * @requires ./protocol
  *
  * @description
- * Ce module utilise UDP pour envoyer des commandes GPIO et écouter les réponses du serveur.
- * Il émet des événements en fonction des réponses reçues et des erreurs de connexion.
+ * This module sends GPIO commands and pings over UDP and listens to the "Status" responses of the robot.
+ * It reports the responses and the errors as events; logging and connection status belong to the module instance.
  */
 
 import dgram from 'node:dgram'
@@ -51,21 +51,19 @@ import {
 } from './protocol.js'
 
 /**
- * Classe représentant le gestionnaire de réseau pour les commandes GPIO.
+ * Network manager of the GPIO commands.
  * @extends EventEmitter
  */
 class NetworkManager extends EventEmitter {
 	/**
-	 * Crée une instance de NetworkManager et démarre le ping.
-	 * @param {Object} config - La configuration réseau (`host`, `port`).
-	 * @param {Function} log - La fonction de journalisation.
+	 * Creates a NetworkManager and starts the ping.
+	 * @param {Object} config - The network configuration (`host`, `port`).
+	 * @param {Function} log - The logging function.
 	 */
-	constructor(config, log, setGpioHeader, gpioBytes) {
+	constructor(config, log) {
 		super()
 		this.config = config
 		this.log = log
-		this.setGpioHeader = setGpioHeader
-		this.gpioBytes = gpioBytes
 		this.pingInterval = PING_INTERVAL_MS
 		this.receptionWatcherInterval = RECEPTION_TIMEOUT_MS
 		this.waitingForStatusResponse = false
@@ -77,42 +75,36 @@ class NetworkManager extends EventEmitter {
 	}
 
 	/**
-	 * Configure la réception des messages UDP.
+	 * Creates the UDP socket and listens to its messages and errors.
 	 * @fires NetworkManager#gpioStatus
 	 * @fires NetworkManager#connectionFailure
 	 * @returns {void}
 	 */
 	configureReception() {
-		// Supprimer la connexion UDP existante
-		if (this.udpClient) {
-			this.udpClient.close()
-			delete this.udpClient
-		}
-
-		// Créer une nouvelle connexion UDP
 		this.udpClient = dgram.createSocket('udp4')
 
-		// Écouter la réponse "Status" du serveur
+		this.udpClient.on('error', (err) => {
+			this.emit('connectionFailure', `UDP socket error: ${err.message}`)
+		})
+
 		this.udpClient.on('message', (msg, rinfo) => {
 			const gpioBytes = parseOutFrame(msg)
-			if (gpioBytes) {
-				this.gpioBytes = gpioBytes
-				clearTimeout(this.receptionWatcherId)
-				this.waitingForStatusResponse = false
-				this.emit('gpioStatus', this.gpioBytes)
-				this.log(
-					'debug',
-					`"Status" response from ${rinfo.address}:${rinfo.port} (GPIO=${bytesToBinaryString(this.gpioBytes)})`,
-				)
-			} else {
+			if (!gpioBytes) {
 				this.emit('connectionFailure', 'Incorrect header or length in "Status" response')
-				this.log('error', 'Incorrect header or length in "Status" response')
+				return
 			}
+			clearTimeout(this.receptionWatcherId)
+			this.waitingForStatusResponse = false
+			this.emit('gpioStatus', gpioBytes)
+			this.log(
+				'debug',
+				`"Status" response from ${rinfo.address}:${rinfo.port} (GPIO=${bytesToBinaryString(gpioBytes)})`,
+			)
 		})
 	}
 
 	/**
-	 * Surveille la réception des réponses du serveur.
+	 * Watches for the server response to the last ping.
 	 * @fires NetworkManager#noResponse
 	 * @returns {void}
 	 */
@@ -121,14 +113,13 @@ class NetworkManager extends EventEmitter {
 			if (this.waitingForStatusResponse) {
 				this.waitingForStatusResponse = false
 				this.emit('noResponse', `No response from server after '${this.receptionWatcherInterval / 1000}' seconds`)
-				this.log('error', `No response from server after '${this.receptionWatcherInterval / 1000}' seconds`)
 			}
 		}, this.receptionWatcherInterval)
 	}
 
 	/**
-	 * Envoie un ping GPIO au serveur, puis se reprogramme après l'intervalle de ping.
-	 * @fires NetworkManager#sendError
+	 * Sends a GPIO ping to the server, then schedules the next one after the ping interval.
+	 * @fires NetworkManager#pingError
 	 * @returns {void}
 	 */
 	sendGpioPing() {
@@ -141,8 +132,7 @@ class NetworkManager extends EventEmitter {
 					return
 				}
 				if (err) {
-					this.emit('sendError', err)
-					this.log('error', `Error sending "Set GPIO" command: ${err}`)
+					this.emit('pingError', err)
 				} else {
 					this.waitingForStatusResponse = true
 					this.receptionWatcher()
@@ -150,28 +140,26 @@ class NetworkManager extends EventEmitter {
 				}
 			})
 		}
-		// Rappeler cette fonction après l'intervalle défini
 		this.sendGpioPingId = setTimeout(() => {
 			this.sendGpioPing()
 		}, this.pingInterval)
 	}
 
 	/**
-	 * Envoie une trame INP au serveur. Sans effet si le gestionnaire est détruit.
-	 * @param {Buffer} gpioBytes - La trame INP complète à envoyer.
+	 * Sends an INP frame to the server. Does nothing once the manager is destroyed.
+	 * @param {Buffer} frame - The complete INP frame to send.
 	 * @fires NetworkManager#sendError
-	 * @returns {Promise&lt;void>} Résolue quand l'envoi est terminé, en succès comme en erreur.
+	 * @returns {Promise&lt;void>} Resolved when the send is over, on success as on error.
 	 */
-	sendGpioCommand(gpioBytes) {
+	sendGpioCommand(frame) {
 		if (!this.udpClient) {
 			this.log('debug', 'NetworkManager destroyed: "Set GPIO" command dropped')
 			return Promise.resolve()
 		}
 		return new Promise((resolve) => {
-			this.udpClient.send(gpioBytes, this.config.port, this.config.host, (err) => {
+			this.udpClient.send(frame, this.config.port, this.config.host, (err) => {
 				if (err) {
 					this.emit('sendError', err)
-					this.log('error', `Error sending "Set GPIO" command: ${err}`)
 				} else {
 					this.log('debug', 'Command "Set GPIO Command" sent successfully.')
 				}
@@ -181,7 +169,7 @@ class NetworkManager extends EventEmitter {
 	}
 
 	/**
-	 * Détruit le gestionnaire de réseau : arrête le ping, la surveillance et ferme le socket.
+	 * Destroys the network manager: stops the ping and the watcher, then closes the socket.
 	 * @returns {void}
 	 */
 	destroy() {
@@ -194,6 +182,36 @@ class NetworkManager extends EventEmitter {
 	}
 }
 
+/**
+ * A valid "Status" response was received.
+ * @event NetworkManager#gpioStatus
+ * @type {Buffer} The 4 GPIO bytes (Little Endian).
+ */
+
+/**
+ * An invalid "Status" response was received, or the UDP socket raised an error.
+ * @event NetworkManager#connectionFailure
+ * @type {string} The reason.
+ */
+
+/**
+ * No "Status" response arrived within the reception timeout after a ping.
+ * @event NetworkManager#noResponse
+ * @type {string} The reason.
+ */
+
+/**
+ * A ping could not be sent (for example `EHOSTUNREACH`).
+ * @event NetworkManager#pingError
+ * @type {Error} The send error.
+ */
+
+/**
+ * A GPIO command could not be sent.
+ * @event NetworkManager#sendError
+ * @type {Error} The send error.
+ */
+
 export default NetworkManager
 </code></pre>
         </article>
@@ -205,13 +223,13 @@ export default NetworkManager
 </div>
 
 <nav>
-    <h2><a href="index.html">Home</a></h2><h3>Modules</h3><ul><li><a href="module-ModuleInstance.html">ModuleInstance</a></li><li><a href="module-NetworkManager.html">NetworkManager</a></li></ul><h3>Classes</h3><ul><li><a href="module-ModuleInstance-ModuleInstance.html">ModuleInstance</a></li><li><a href="module-NetworkManager-NetworkManager.html">NetworkManager</a></li></ul><h3>Global</h3><ul><li><a href="global.html#GPIO_LENGTH">GPIO_LENGTH</a></li><li><a href="global.html#IMPULSE_DELAY_MS">IMPULSE_DELAY_MS</a></li><li><a href="global.html#INP_HEADER">INP_HEADER</a></li><li><a href="global.html#INP_MIN_LENGTH">INP_MIN_LENGTH</a></li><li><a href="global.html#OUT_HEADER">OUT_HEADER</a></li><li><a href="global.html#OUT_MIN_LENGTH">OUT_MIN_LENGTH</a></li><li><a href="global.html#PING_INTERVAL_MS">PING_INTERVAL_MS</a></li><li><a href="global.html#PORT">PORT</a></li><li><a href="global.html#RECEPTION_TIMEOUT_MS">RECEPTION_TIMEOUT_MS</a></li><li><a href="global.html#RESERVED_LENGTH">RESERVED_LENGTH</a></li><li><a href="global.html#UpgradeScripts">UpgradeScripts</a></li><li><a href="global.html#applyMask">applyMask</a></li><li><a href="global.html#applyMaskAndUpdateGPIO">applyMaskAndUpdateGPIO</a></li><li><a href="global.html#bitBitMask">bitBitMask</a></li><li><a href="global.html#bitByteIndex">bitByteIndex</a></li><li><a href="global.html#buildImpulseFrames">buildImpulseFrames</a></li><li><a href="global.html#buildInpFrame">buildInpFrame</a></li><li><a href="global.html#buildOutFrame">buildOutFrame</a></li><li><a href="global.html#buildPingFrame">buildPingFrame</a></li><li><a href="global.html#bytesToBinaryString">bytesToBinaryString</a></li><li><a href="global.html#encodeBit">encodeBit</a></li><li><a href="global.html#gpio">gpio</a></li><li><a href="global.html#parseInpFrame">parseInpFrame</a></li><li><a href="global.html#parseOutFrame">parseOutFrame</a></li><li><a href="global.html#sendStatus">sendStatus</a></li><li><a href="global.html#server">server</a></li></ul>
+    <h2><a href="index.html">Home</a></h2><h3>Modules</h3><ul><li><a href="module-ModuleInstance.html">ModuleInstance</a></li><li><a href="module-NetworkManager.html">NetworkManager</a></li></ul><h3>Classes</h3><ul><li><a href="module-ModuleInstance-ModuleInstance.html">ModuleInstance</a></li><li><a href="module-NetworkManager-NetworkManager.html">NetworkManager</a></li></ul><h3>Events</h3><ul><li><a href="NetworkManager.html#event:connectionFailure">connectionFailure</a></li><li><a href="NetworkManager.html#event:gpioStatus">gpioStatus</a></li><li><a href="NetworkManager.html#event:noResponse">noResponse</a></li><li><a href="NetworkManager.html#event:pingError">pingError</a></li><li><a href="NetworkManager.html#event:sendError">sendError</a></li></ul><h3>Global</h3><ul><li><a href="global.html#ACTION_ID_MAP">ACTION_ID_MAP</a></li><li><a href="global.html#DEFAULT_ON_COLOR">DEFAULT_ON_COLOR</a></li><li><a href="global.html#GPIO_COUNT">GPIO_COUNT</a></li><li><a href="global.html#GPIO_LENGTH">GPIO_LENGTH</a></li><li><a href="global.html#IMPULSE_DELAY_MS">IMPULSE_DELAY_MS</a></li><li><a href="global.html#INP_HEADER">INP_HEADER</a></li><li><a href="global.html#INP_MIN_LENGTH">INP_MIN_LENGTH</a></li><li><a href="global.html#LEGACY_ACTION_ID">LEGACY_ACTION_ID</a></li><li><a href="global.html#LEGACY_FEEDBACK_ID">LEGACY_FEEDBACK_ID</a></li><li><a href="global.html#OUT_HEADER">OUT_HEADER</a></li><li><a href="global.html#OUT_MIN_LENGTH">OUT_MIN_LENGTH</a></li><li><a href="global.html#PING_INTERVAL_MS">PING_INTERVAL_MS</a></li><li><a href="global.html#PORT">PORT</a></li><li><a href="global.html#RECEPTION_TIMEOUT_MS">RECEPTION_TIMEOUT_MS</a></li><li><a href="global.html#RESERVED_LENGTH">RESERVED_LENGTH</a></li><li><a href="global.html#applyMask">applyMask</a></li><li><a href="global.html#applyMaskAndUpdateGPIO">applyMaskAndUpdateGPIO</a></li><li><a href="global.html#bitBitMask">bitBitMask</a></li><li><a href="global.html#bitByteIndex">bitByteIndex</a></li><li><a href="global.html#buildImpulseFrames">buildImpulseFrames</a></li><li><a href="global.html#buildInpFrame">buildInpFrame</a></li><li><a href="global.html#buildOutFrame">buildOutFrame</a></li><li><a href="global.html#buildPingFrame">buildPingFrame</a></li><li><a href="global.html#bytesToBinaryString">bytesToBinaryString</a></li><li><a href="global.html#encodeBit">encodeBit</a></li><li><a href="global.html#gpio">gpio</a></li><li><a href="global.html#gpioOption">gpioOption</a></li><li><a href="global.html#isValidBit">isValidBit</a></li><li><a href="global.html#legacyBit">legacyBit</a></li><li><a href="global.html#onColor">onColor</a></li><li><a href="global.html#parseInpFrame">parseInpFrame</a></li><li><a href="global.html#parseOutFrame">parseOutFrame</a></li><li><a href="global.html#readBit">readBit</a></li><li><a href="global.html#readGpioOption">readGpioOption</a></li><li><a href="global.html#sendStatus">sendStatus</a></li><li><a href="global.html#server">server</a></li><li><a href="global.html#upgradeToGpioOption">upgradeToGpioOption</a></li></ul>
 </nav>
 
 <br class="clear">
 
 <footer>
-    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.5</a> on Mon Nov 09 2026 09:59:15 GMT+0100 (heure normale d’Europe centrale)
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.5</a> on Tue Nov 10 2026 15:41:08 GMT+0100 (heure normale d’Europe centrale)
 </footer>
 
 <script> prettyPrint(); </script>

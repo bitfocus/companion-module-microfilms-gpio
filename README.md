@@ -2,109 +2,117 @@
 
 ## Description
 
-Ce module Companion permet de contrôler les robots Microfilms (machineries) via des commandes UDP pour activer ou désactiver les bits GPIO du robot. Les GPIO peuvent être activés ou désactivés en fonction des actions de l'utilisateur dans Companion (comme les presets « Impulse » ou « Two states »), et le robot renvoie des informations sur l'état actuel des GPIO via des réponses "Status".
+This Companion module controls Microfilms robots (stage machinery) over UDP, by setting the GPIOs of the robot on or off. The GPIOs follow the actions of the user in Companion (for example the "Impulse" or "Two states" presets), and the robot reports the current state of its GPIOs in "Status" responses.
 
-Le module gère 32 bits GPIO (répartis sur 4 octets) et envoie des commandes au robot pour définir l'état des GPIO et recevoir les retours de statut.
+The module handles 32 GPIOs (4 bytes). It sends commands to the robot to set the GPIOs and receives the status responses.
 
-## Fonctionnalités
+## Features
 
-- **Impulse** (`GPIO nn pulse (100 ms)`) : active un GPIO, puis le désactive après 100 ms.
-- **Two states** (`GPIO nn set on` / `GPIO nn set off`) : active un GPIO lorsque l'utilisateur appuie sur un bouton et le désactive lorsque l'utilisateur relâche le bouton.
-- **Feedbacks** : Le module surveille les états des GPIO et modifie dynamiquement l'apparence des boutons dans Companion en fonction de ces états (couleur verte lorsque le GPIO est activé, rouge sinon).
-- **Variables** : `01` … `32` (état 0/1 de chaque GPIO) et `Full` (les 32 bits en entier non signé, Little Endian), mises à jour à chaque changement d'état.
-- **Communication UDP** : Les échanges entre Companion et le robot se font via UDP. Le module envoie des messages "Set GPIO" et le robot répond avec des messages "Status".
+- **Actions** (each with a **GPIO** option, 1 to 32):
+  - `GPIO pulse`: sets the GPIO on, then off after 100 ms.
+  - `GPIO set on` / `GPIO set off`: sets the GPIO on or off. The "Two states" presets set it on while the key is pressed and off when it is released.
+- **Feedback** `GPIO state` (boolean, **GPIO** option): green background while the GPIO is on, from the last status response. Companion's **Inverted** option styles the off state instead.
+- **Variables**: `01` … `32` (state 0/1 of each GPIO) and `Full` (all GPIO states as an unsigned 32-bit integer, Little Endian), updated on every state change.
+- **Connection status**: **OK** on every valid response, **Disconnected** after 3 s without a response, **Connection failure** with the reason when a ping cannot be sent or the response is invalid. Each new reason is logged once.
+- **UDP communication**: the module sends "Set GPIO" messages and the robot answers with "Status" messages.
 
-## Prérequis
+## Requirements
 
-- Companion **5.x** installé et configuré (le module utilise `@companion-module/base` 2.x et ne se charge plus sur Companion 4).
-- Node **26** pour le développement, les tests et le packaging (`.node-version` = `26`, par exemple via `fnm use --install-if-missing`).
-- Yarn **4** via corepack (`packageManager` du `package.json`). Si corepack manque dans le Node 26 installé : `npm i -g corepack`, puis `corepack enable`.
-- Adresse IP et port du robot Microfilms (configurable dans l'interface du module Companion).
-- Simulateur UDP du robot (inclus dans le projet pour tester les fonctionnalités).
+- Companion **5.0** or later (the module uses `@companion-module/base` 2.x and no longer loads on Companion 4).
+- Node **26** for development, tests and packaging (`.node-version` = `26`, for example with `fnm use --install-if-missing`).
+- Yarn **4** through corepack (`packageManager` field of `package.json`). If corepack is missing from the installed Node 26: `npm i -g corepack`, then `corepack enable`.
+- IP address and port of the Microfilms robot (set in the configuration of the Companion connection).
+- UDP simulator of the robot (included, to test without hardware).
 
 ## Configuration
 
-1. Ajoutez l'IP et le port du robot Microfilms dans la configuration du module.
-2. Configurez les actions et feedbacks dans l'interface Companion.
-3. Utilisez le simulateur UDP fourni pour tester la communication avec le robot.
+1. Enter the IP address and port of the Microfilms robot in the connection configuration.
+2. Set up the actions and the feedback in Companion, or use the presets of the "GPIO" section.
+3. Use the included UDP simulator to test the communication.
 
-## Structure des commandes
+## Upgrading from 1.1.0 or earlier
 
-### Commande `Set GPIO`
+Version 1.2.0 replaces the 96 per-GPIO actions (`impulseN`, `upN`, `downN`) and the 32 per-GPIO advanced feedbacks (`gpio_state_bit_N`) by 3 actions (`pulse`, `set_on`, `set_off`) and 1 boolean feedback (`gpio_state`), each with a `gpio` option. An upgrade script converts the saved buttons on the first start: the GPIO number goes to the `gpio` option and the feedback keeps its `colorOn` color as its style. The `colorOff` color is dropped.
 
-La commande `Set GPIO` est envoyée par le module Companion pour définir l'état des GPIO. Elle contient les informations suivantes :
+## Command structure
 
-- **En-tête** : `INP` (3 octets) pour identifier la commande.
-- **GPIO Bytes** : 4 octets représentant l'état des 32 GPIO.
-- **Mask Bytes** : 4 octets pour appliquer un masque sur les GPIO à modifier.
+### `Set GPIO` command
 
-### Réponse `Status`
+The module sends the `Set GPIO` command to set the GPIOs. It holds:
 
-Le robot répond avec un message `Status`, contenant :
+- **Header**: `INP` (3 bytes), identifies the command.
+- **GPIO bytes**: 4 bytes, the state of the 32 GPIOs.
+- **Mask bytes**: 4 bytes, the GPIOs to change.
+- **Reserved**: 2 bytes at 0.
 
-- **En-tête** : `OUT` (3 octets).
-- **GPIO Bytes** : 4 octets représentant l'état actuel des 32 GPIO.
+### `Status` response
 
-### Exemple de Message UDP
+The robot answers with a `Status` message:
 
-#### Envoi `Set GPIO` (Activer GPIO bit 1)
+- **Header**: `OUT` (3 bytes).
+- **GPIO bytes**: 4 bytes, the current state of the 32 GPIOs.
+
+### UDP message example
+
+#### `Set GPIO` (set GPIO 1 on)
 
 ```bash
 INP 00000000 00000000 00000000 00000001 00000000 00000000 00000000 00000001
 ```
 
-- En-tête : `INP`
-- GPIO Bytes : `[00000000 00000000 00000000 00000001]` (bit 1 activé)
-- Mask Bytes : `[00000000 00000000 00000000 00000001]` (le premier octet est pris en compte, les autres sont ignorés)
+- Header: `INP`
+- GPIO bytes: `[00000000 00000000 00000000 00000001]` (GPIO 1 on)
+- Mask bytes: `[00000000 00000000 00000000 00000001]` (only GPIO 1 is changed, the others are left as they are)
 
-#### Réponse `Status`
+#### `Status` response
 
 ```bash
 OUT 00000000 00000000 00000000 00000001
 ```
 
-- En-tête : `OUT`
-- GPIO Bytes : `[00000000 00000000 00000000 00000001]` (bit 1 activé)
+- Header: `OUT`
+- GPIO bytes: `[00000000 00000000 00000000 00000001]` (GPIO 1 on)
 
-## Fonctionnement du module
+## How the module works
 
-1. **Configuration UDP** : Le module initialise une connexion UDP avec le robot (ou le simulateur) lors de l'initialisation.
-2. **Actions** : Lorsqu'un utilisateur active une action (par exemple, impulse ou two states), le module envoie une commande UDP "Set GPIO" pour changer l'état du GPIO correspondant.
-3. **Réception des Statuts** : Le robot envoie un message "Status" en réponse, et le module met à jour les feedbacks et les variables lorsque l'état des GPIO change.
+1. **UDP setup**: the module opens a UDP socket to the robot (or the simulator) on start and pings it every 500 ms.
+2. **Actions**: when the user runs an action (pulse, set on, set off), the module sends a "Set GPIO" UDP command for the GPIO of the action.
+3. **Status responses**: the robot answers with a "Status" message, and the module updates the feedback and the variables when the GPIO state changes.
 
-## Simulateur UDP du Robot
+## Robot UDP simulator
 
-Un simulateur de robot est inclus pour tester le module Companion sans avoir accès à un robot physique. Le simulateur écoute sur un port UDP et réagit aux commandes Set GPIO en renvoyant une réponse Status avec les GPIO mis à jour.
+A robot simulator is included to test the Companion module without a physical robot. It listens on UDP port 7770 and answers each Set GPIO command with a Status response holding the updated GPIOs.
 
-### Utilisation du simulateur
+### Using the simulator
 
-1. Lancez le simulateur de robot UDP (Node 26) :
+1. Start the robot UDP simulator (Node 26):
 
 ```bash
 fnm use --install-if-missing
 node tools/udp-server.js
 ```
 
-2. Configurez l'IP et le port du simulateur dans le module Companion.
-3. Utilisez l'interface Companion pour envoyer des commandes et observer les réponses.
+2. Point the Companion connection to the IP address and port of the simulator.
+3. Use Companion to send commands and watch the responses.
 
-## Structure des fichiers
+## Files
 
-- **src/main.js** : Point d'entrée du module Companion (manifest `../src/main.js`), gère la configuration, le NetworkManager, les variables et les feedbacks.
-- **src/network.js** : Gère la connexion et la communication avec le robot via UDP.
-- **src/actions.js** : Définit les actions pulse / set on / set off pour les 32 bits GPIO.
-- **src/feedbacks.js** : Gère les feedbacks en fonction de l'état des bits GPIO.
-- **src/presets.js** : Crée les presets de boutons pour contrôler les GPIO (section « GPIO »).
-- **src/variables.js** : Déclare les variables `01` … `32` et `Full`.
-- **src/protocol.js** : Helpers purs du protocole UDP/GPIO (trames `INP` / `OUT`, masque, bits 1–32).
-- **src/upgrades.js** : Scripts de migration de configuration (aucun).
-- **tools/udp-server.js** : Simulateur de robot qui reçoit les commandes Set GPIO et renvoie des statuts (hors bundle).
-- **test/** : Tests `node --test` du protocole, des actions, du module et du NetworkManager (ports éphémères).
+- **src/main.js**: entrypoint of the Companion module (manifest `../src/main.js`); handles the configuration, the NetworkManager, the connection status, the variables and the feedback.
+- **src/network.js**: UDP connection and communication with the robot.
+- **src/actions.js**: the `pulse`, `set_on` and `set_off` actions.
+- **src/feedbacks.js**: the `gpio_state` boolean feedback.
+- **src/options.js**: the `gpio` option shared by the actions and the feedback, and its validation.
+- **src/presets.js**: button presets for the 32 GPIOs ("GPIO" section).
+- **src/variables.js**: the `01` … `32` and `Full` variables.
+- **src/protocol.js**: pure helpers of the UDP/GPIO protocol (`INP` / `OUT` frames, mask, GPIO 1–32).
+- **src/upgrades.js**: configuration upgrade scripts (1.2.0: per-GPIO actions and feedbacks to the `gpio` option).
+- **tools/udp-server.js**: robot simulator that receives the Set GPIO commands and sends statuses back (not bundled).
+- **test/**: `node --test` tests of the protocol, the actions, the definitions, the upgrade script, the module and the NetworkManager (ephemeral ports).
 
-## Installation (développement)
+## Installation (development)
 
-Clonez le dépôt dans un sous-dossier du chemin de modules développeur de Companion (option `--extra-module-path` ou réglage _Developer modules path_).
-Installer les dépendances avec Node 26 et Yarn 4 :
+Clone the repository into a subfolder of the Companion developer modules path (`--extra-module-path` option or _Developer modules path_ setting).
+Install the dependencies with Node 26 and Yarn 4:
 
 ```bash
 fnm use --install-if-missing
@@ -112,8 +120,7 @@ corepack enable
 yarn install
 ```
 
-Configurez l'IP et le port du robot dans Companion.
-Lancez Companion 5 et ajoutez la connexion "Microfilms: Gpio" (version **Dev**).
+Start Companion 5, add the "Microfilms: Gpio" connection (**Dev** version) and set the IP address and port of the robot.
 
 ## Tests
 
@@ -123,29 +130,29 @@ yarn lint
 yarn format
 ```
 
-Les tests figent le protocole UDP (trames de 13 / 7 octets, masque, Impulse 100 ms, ping 500 ms, timeout 3 s) et n'ouvrent jamais le port 7770. `yarn format` applique Prettier (configuration de `@companion-module/tools`) ; ESLint ne garde que les règles de qualité.
+The tests freeze the UDP protocol (13 / 7 byte frames, mask, 100 ms pulse, 500 ms ping, 3 s timeout) and never open port 7770. `yarn format` runs Prettier (configuration of `@companion-module/tools`); ESLint only keeps quality rules. `yarn doc` regenerates the JSDoc in `docs/`.
 
-## Packaging pour le déploiement
+## Packaging
 
-### Créer le bundle pour Companion 5
+### Building the bundle for Companion 5
 
 ```bash
 yarn package
 ```
 
-Cette commande (`companion-module-build`) génère le dossier `pkg/microfilms-gpio/` et l'archive `microfilms-gpio-<version>.tgz` à la racine du projet. C'est ce fichier que vous devez fournir à votre client.
+This command (`companion-module-build`) creates the `pkg/microfilms-gpio/` folder and the `microfilms-gpio-<version>.tgz` archive at the root of the project. This archive is the file to hand over.
 
-### Installation par le client (Companion 5)
+### Installing the bundle (Companion 5)
 
-1. Ouvrir l'interface web de Companion
-2. Aller dans **Modules**
-3. Cliquer sur **Import offline module bundle**
-4. Sélectionner le fichier `microfilms-gpio-<version>.tgz` fourni
-5. Le module sera installé automatiquement
-6. Aucun redémarrage nécessaire
+1. Open the Companion web interface
+2. Go to **Modules**
+3. Click **Import offline module bundle**
+4. Select the `microfilms-gpio-<version>.tgz` file
+5. The module is installed right away
+6. No restart needed
 
-✅ **Avantages** : Installation simple via l'interface web, pas besoin d'accéder aux fichiers système.
+✅ **Benefits**: simple installation from the web interface, no access to system files needed.
 
-⚠️ **Note sur la version** : Pendant le développement, le module affichera "Dev" dans Companion. Une fois installé via le bundle offline, la version du `package.json` sera affichée.
+⚠️ **Version**: during development, Companion shows the module as "Dev". Once installed from the offline bundle, it shows the version of `package.json`.
 
-⚠️ **Compatibilité** : depuis la version 1.0.0, le module cible l'API `@companion-module/base` 2.x et ne se charge plus sur Companion 4.x ni 3.x. Depuis la version 1.1.0, il tourne sur le runtime `node26`.
+⚠️ **Compatibility**: since version 1.0.0, the module targets the `@companion-module/base` 2.x API and no longer loads on Companion 4.x or 3.x. Since version 1.1.0, it runs on the `node26` runtime.

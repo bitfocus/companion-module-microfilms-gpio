@@ -27,20 +27,102 @@
     <section>
         <article>
             <pre class="prettyprint source linenums"><code>/**
- * Scripts de migration de configuration (upgrade scripts) du module.
- * Aucun script requis : les identifiants d'actions, de feedbacks et leurs options
- * sont inchangés depuis la première version. Une fois ajouté, un script ne peut plus être retiré.
+ * Configuration upgrade scripts of the module, run by Companion in order.
+ * Once released, a script must never be removed or reordered.
+ *
+ * Required modules:
+ * - @companion-module/base (colors)
+ * - ./protocol (GPIO validation)
  */
 
-export const UpgradeScripts = [
-	// function (context, props) {
-	// 	return {
-	// 		updatedConfig: null,
-	// 		updatedActions: [],
-	// 		updatedFeedbacks: [],
-	// 	}
-	// },
-]
+import { combineRgb } from '@companion-module/base'
+import { isValidBit } from './protocol.js'
+
+/** Background color of the `gpio_state` feedback when the old `colorOn` option cannot be reused. */
+const DEFAULT_ON_COLOR = combineRgb(0, 200, 0)
+
+/** Per-GPIO action IDs up to 1.1.0 (`impulseN`, `upN`, `downN`) and their 1.2.0 replacement. */
+const ACTION_ID_MAP = {
+	impulse: 'pulse',
+	up: 'set_on',
+	down: 'set_off',
+}
+
+/** Per-GPIO action ID up to 1.1.0: prefix, then the GPIO number without leading zero. */
+const LEGACY_ACTION_ID = /^(impulse|up|down)([1-9]\d?)$/
+
+/** Per-GPIO advanced feedback ID up to 1.1.0. */
+const LEGACY_FEEDBACK_ID = /^gpio_state_bit_([1-9]\d?)$/
+
+/**
+ * Reads the GPIO number at the end of a legacy ID.
+ *
+ * digits: digits captured at the end of the ID.
+ * @returns {number|null} The GPIO number (1–32), or null if it is out of range.
+ */
+function legacyBit(digits) {
+	const bit = Number(digits)
+	return isValidBit(bit) ? bit : null
+}
+
+/**
+ * Returns the background color to keep from the old `colorOn` option.
+ *
+ * colorOn: stored value of the option (`{ isExpression, value }`), possibly missing.
+ * @returns {number} The fixed `colorOn` value, or green if it is missing or an expression.
+ */
+function onColor(colorOn) {
+	if (colorOn &amp;&amp; colorOn.isExpression === false &amp;&amp; typeof colorOn.value === 'number') {
+		return colorOn.value
+	}
+	return DEFAULT_ON_COLOR
+}
+
+/**
+ * 1.2.0: replaces the 96 per-GPIO actions and the 32 per-GPIO advanced feedbacks
+ * by the `pulse` / `set_on` / `set_off` actions and the `gpio_state` boolean feedback,
+ * with the GPIO in their `gpio` option.
+ * The feedback keeps the old `colorOn` color as its style; `colorOff` is dropped.
+ * Any other action or feedback is left untouched.
+ *
+ * props: actions and feedbacks to upgrade (the upgrade context is unused).
+ * @returns {Object} The upgraded actions and feedbacks.
+ */
+function upgradeToGpioOption(_context, props) {
+	const updatedActions = []
+	for (const action of props.actions) {
+		const match = LEGACY_ACTION_ID.exec(action.actionId)
+		const bit = match ? legacyBit(match[2]) : null
+		if (bit === null) {
+			continue
+		}
+		action.actionId = ACTION_ID_MAP[match[1]]
+		action.options = { gpio: { isExpression: false, value: bit } }
+		updatedActions.push(action)
+	}
+
+	const updatedFeedbacks = []
+	for (const feedback of props.feedbacks) {
+		const match = LEGACY_FEEDBACK_ID.exec(feedback.feedbackId)
+		const bit = match ? legacyBit(match[1]) : null
+		if (bit === null) {
+			continue
+		}
+		const bgcolor = onColor(feedback.options?.colorOn)
+		feedback.feedbackId = 'gpio_state'
+		feedback.options = { gpio: { isExpression: false, value: bit } }
+		feedback.style = { bgcolor }
+		updatedFeedbacks.push(feedback)
+	}
+
+	return {
+		updatedConfig: null,
+		updatedActions,
+		updatedFeedbacks,
+	}
+}
+
+export const UpgradeScripts = [upgradeToGpioOption]
 </code></pre>
         </article>
     </section>
@@ -51,13 +133,13 @@ export const UpgradeScripts = [
 </div>
 
 <nav>
-    <h2><a href="index.html">Home</a></h2><h3>Modules</h3><ul><li><a href="module-ModuleInstance.html">ModuleInstance</a></li><li><a href="module-NetworkManager.html">NetworkManager</a></li></ul><h3>Classes</h3><ul><li><a href="module-ModuleInstance-ModuleInstance.html">ModuleInstance</a></li><li><a href="module-NetworkManager-NetworkManager.html">NetworkManager</a></li></ul><h3>Global</h3><ul><li><a href="global.html#GPIO_LENGTH">GPIO_LENGTH</a></li><li><a href="global.html#IMPULSE_DELAY_MS">IMPULSE_DELAY_MS</a></li><li><a href="global.html#INP_HEADER">INP_HEADER</a></li><li><a href="global.html#INP_MIN_LENGTH">INP_MIN_LENGTH</a></li><li><a href="global.html#OUT_HEADER">OUT_HEADER</a></li><li><a href="global.html#OUT_MIN_LENGTH">OUT_MIN_LENGTH</a></li><li><a href="global.html#PING_INTERVAL_MS">PING_INTERVAL_MS</a></li><li><a href="global.html#PORT">PORT</a></li><li><a href="global.html#RECEPTION_TIMEOUT_MS">RECEPTION_TIMEOUT_MS</a></li><li><a href="global.html#RESERVED_LENGTH">RESERVED_LENGTH</a></li><li><a href="global.html#UpgradeScripts">UpgradeScripts</a></li><li><a href="global.html#applyMask">applyMask</a></li><li><a href="global.html#applyMaskAndUpdateGPIO">applyMaskAndUpdateGPIO</a></li><li><a href="global.html#bitBitMask">bitBitMask</a></li><li><a href="global.html#bitByteIndex">bitByteIndex</a></li><li><a href="global.html#buildImpulseFrames">buildImpulseFrames</a></li><li><a href="global.html#buildInpFrame">buildInpFrame</a></li><li><a href="global.html#buildOutFrame">buildOutFrame</a></li><li><a href="global.html#buildPingFrame">buildPingFrame</a></li><li><a href="global.html#bytesToBinaryString">bytesToBinaryString</a></li><li><a href="global.html#encodeBit">encodeBit</a></li><li><a href="global.html#gpio">gpio</a></li><li><a href="global.html#parseInpFrame">parseInpFrame</a></li><li><a href="global.html#parseOutFrame">parseOutFrame</a></li><li><a href="global.html#sendStatus">sendStatus</a></li><li><a href="global.html#server">server</a></li></ul>
+    <h2><a href="index.html">Home</a></h2><h3>Modules</h3><ul><li><a href="module-ModuleInstance.html">ModuleInstance</a></li><li><a href="module-NetworkManager.html">NetworkManager</a></li></ul><h3>Classes</h3><ul><li><a href="module-ModuleInstance-ModuleInstance.html">ModuleInstance</a></li><li><a href="module-NetworkManager-NetworkManager.html">NetworkManager</a></li></ul><h3>Events</h3><ul><li><a href="NetworkManager.html#event:connectionFailure">connectionFailure</a></li><li><a href="NetworkManager.html#event:gpioStatus">gpioStatus</a></li><li><a href="NetworkManager.html#event:noResponse">noResponse</a></li><li><a href="NetworkManager.html#event:pingError">pingError</a></li><li><a href="NetworkManager.html#event:sendError">sendError</a></li></ul><h3>Global</h3><ul><li><a href="global.html#ACTION_ID_MAP">ACTION_ID_MAP</a></li><li><a href="global.html#DEFAULT_ON_COLOR">DEFAULT_ON_COLOR</a></li><li><a href="global.html#GPIO_COUNT">GPIO_COUNT</a></li><li><a href="global.html#GPIO_LENGTH">GPIO_LENGTH</a></li><li><a href="global.html#IMPULSE_DELAY_MS">IMPULSE_DELAY_MS</a></li><li><a href="global.html#INP_HEADER">INP_HEADER</a></li><li><a href="global.html#INP_MIN_LENGTH">INP_MIN_LENGTH</a></li><li><a href="global.html#LEGACY_ACTION_ID">LEGACY_ACTION_ID</a></li><li><a href="global.html#LEGACY_FEEDBACK_ID">LEGACY_FEEDBACK_ID</a></li><li><a href="global.html#OUT_HEADER">OUT_HEADER</a></li><li><a href="global.html#OUT_MIN_LENGTH">OUT_MIN_LENGTH</a></li><li><a href="global.html#PING_INTERVAL_MS">PING_INTERVAL_MS</a></li><li><a href="global.html#PORT">PORT</a></li><li><a href="global.html#RECEPTION_TIMEOUT_MS">RECEPTION_TIMEOUT_MS</a></li><li><a href="global.html#RESERVED_LENGTH">RESERVED_LENGTH</a></li><li><a href="global.html#applyMask">applyMask</a></li><li><a href="global.html#applyMaskAndUpdateGPIO">applyMaskAndUpdateGPIO</a></li><li><a href="global.html#bitBitMask">bitBitMask</a></li><li><a href="global.html#bitByteIndex">bitByteIndex</a></li><li><a href="global.html#buildImpulseFrames">buildImpulseFrames</a></li><li><a href="global.html#buildInpFrame">buildInpFrame</a></li><li><a href="global.html#buildOutFrame">buildOutFrame</a></li><li><a href="global.html#buildPingFrame">buildPingFrame</a></li><li><a href="global.html#bytesToBinaryString">bytesToBinaryString</a></li><li><a href="global.html#encodeBit">encodeBit</a></li><li><a href="global.html#gpio">gpio</a></li><li><a href="global.html#gpioOption">gpioOption</a></li><li><a href="global.html#isValidBit">isValidBit</a></li><li><a href="global.html#legacyBit">legacyBit</a></li><li><a href="global.html#onColor">onColor</a></li><li><a href="global.html#parseInpFrame">parseInpFrame</a></li><li><a href="global.html#parseOutFrame">parseOutFrame</a></li><li><a href="global.html#readBit">readBit</a></li><li><a href="global.html#readGpioOption">readGpioOption</a></li><li><a href="global.html#sendStatus">sendStatus</a></li><li><a href="global.html#server">server</a></li><li><a href="global.html#upgradeToGpioOption">upgradeToGpioOption</a></li></ul>
 </nav>
 
 <br class="clear">
 
 <footer>
-    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.5</a> on Mon Nov 09 2026 09:59:15 GMT+0100 (heure normale d’Europe centrale)
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.5</a> on Tue Nov 10 2026 15:41:08 GMT+0100 (heure normale d’Europe centrale)
 </footer>
 
 <script> prettyPrint(); </script>
